@@ -1,6 +1,79 @@
 include("helper_split.jl")
 include("moves_samplers.jl")
 
+
+function UKLA(∇U::Function,
+    δ::Float64,
+    N::Integer,
+    K::Integer,
+    η::Float64,
+    x_init::Vector{Float64},
+    v_init::Vector{Float64})
+
+    chain = skeleton[]
+    #push!(chain, skeleton(x_init, v_init, 0, x_init))
+    push!(chain, skeleton(x_init, v_init, 0))
+    x = x_init
+    v = v_init
+    #   M = x_init
+    gradU = ∇U(x)
+    for n = 1:N
+        v = η * v + sqrt(1 - η^2) * randn(size(x))
+        for k = 1:K
+            v = v - δ * gradU / 2
+            x = x + δ * v
+            gradU = ∇U(x)
+            v = v - δ * gradU / 2
+        end
+        v = η * v + sqrt(1 - η^2) * randn(size(x))
+        #      M=M+(x-M)/n
+        push!(chain, skeleton(copy(x), copy(v), n * δ))
+        #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
+    end
+    chain
+end
+
+function HMC(∇U::Function,
+    U::Function,
+    δ::Float64,
+    N::Integer,
+    K::Integer,
+    η::Float64,
+    x_init::Vector{Float64},
+    v_init::Vector{Float64})
+
+    chain = skeleton[]
+    #push!(chain, skeleton(x_init, v_init, 0, x_init))
+    push!(chain, skeleton(x_init, v_init, 0))
+    x = x_init
+    x_prop = x
+    gradU = ∇U(x_prop)
+    v = v_init
+    v_prop = v
+    #    M = x_init
+    for n = 1:N
+        v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
+        for k = 1:K
+            v_prop = v_prop - δ * gradU / 2
+            x_prop = x_prop + δ * v_prop
+            gradU = ∇U(x_prop)
+            v_prop = v_prop - δ * gradU / 2
+        end
+        v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
+        #       M = M + (x_prop - M) / n
+        α = min(1, exp(U(x_prop) + dot(v_prop, v_prop) - U(x) - dot(v, v)))
+        acc_rej = rand(Bernoulli(α), 1)[1]
+        if acc_rej
+            x = x_prop
+            v = v_prop
+        end
+        #x=x+acc_rej*(x_prop-x)
+        push!(chain, skeleton(copy(x), copy(v), n * δ))
+        #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
+    end
+    chain
+end
+
 function ULA_sim(∇U::Function,
                         δ::Float64,
                         N::Integer,

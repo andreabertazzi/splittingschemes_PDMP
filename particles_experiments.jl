@@ -21,6 +21,10 @@ function interaction_pot(x::Vector{Float64})
     return sum(V.(x[1:end-1] - x[2:end])) + sum(W.(x .- x')) / (2 * length(x))
 end
 
+function interaction_pot_grad(x::Vector{Float64})
+    return vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])) + sum(Wprime.(x_init .- x_init'), dims=2) / (length(x)))
+end
+
 Vrates(x,v,i)   = define_Vrates(Vprime, x, v, i, N)
 Wrates(x,v,i,j) = define_Wrates(Wprime, x, v, i, j, N)
 

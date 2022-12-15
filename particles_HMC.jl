@@ -1,4 +1,4 @@
-using AdvancedHMC, Distributions, ForwardDiff
+using AdvancedHMC, Distributions
 using LinearAlgebra
 
 # Choose parameter dimensionality and initial parameter value
@@ -17,6 +17,11 @@ Wprime(r) = a * r / sqrt(1+r^2)
 function interaction_pot(x::Vector{Float64})
     return sum(V.(x[1:end-1] - x[2:end])) + sum(W.(x .- x')) / (2 * length(x))
 end
+
+function interaction_pot_grad(x::Vector{Float64})
+    return vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])) + sum(Wprime.(x .- x'), dims=2) / (length(x)))
+end
+
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
@@ -24,7 +29,8 @@ n_samples, n_adapts = 2_000, 1_000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)
-hamiltonian = Hamiltonian(metric, ℓπ, ForwardDiff)
+diff_fun(x) = [interaction_pot(x), interaction_pot_grad(x)]
+hamiltonian = Hamiltonian(metric, ℓπ, diff_fun)
 
 # Define a leapfrog solver, with initial step size chosen heuristically
 initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)

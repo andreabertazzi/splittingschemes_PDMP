@@ -7,21 +7,21 @@ struct skeleton
   time::Float64
 end
 
-function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false)
+function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false, observable::Function=identity)
   if i_end == 0
     i_end = length(skele)
   end
   n_samples = i_end - i_start + 1
-  dim = size(skele[1].position,1)
+  dim = size(observable(skele[1].position), 1)
   if want_array
-    position = Array{Float64,2}(undef,dim,n_samples)
+    position = Array{Float64,2}(undef, dim, n_samples)
     for i = i_start:i_end
-      position[:,i] = skele[i].position
+      position[:, i] .= observable(skele[i].position)
     end
   else
-    position = Vector{Vector{Float64}}(undef,0)
+    position = Vector{Vector{Float64}}(undef, 0)
     for i = i_start:i_end
-      push!(position,skele[i].position)
+      push!(position, observable(skele[i].position))
     end
   end
   return position

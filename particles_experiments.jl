@@ -6,8 +6,8 @@ include("algorithms.jl")
 include("functions_particles.jl")
 
 N = 100 # number of particles
-iter = 1 * 10^2 # number of iterations per thinned sample
-thin_iter = 10^5 # number of thinned samples want to get. If ==1 then no thinning.
+iter = 1 * 10^3 # number of iterations per thinned sample
+thin_iter = 10^4 # number of thinned samples want to get. If ==1 then no thinning.
 δ = 1e-5
 
 a = 1.
@@ -58,13 +58,15 @@ for j = 1:N
 end
 
 display(pl)
-plot(mu', label="baricentre")
-savefig(pl, string("baricentre_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
-trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
-display(plot(trace_potential, label="Trace potential", yaxis=:log))
-savefig(pl, string("tracepot_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
 
-# savefig(pl, string("trajectories_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
+p_bar = plot(mu', label="baricentre")
+savefig(p_bar, string("baricentre_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
+trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
+p_tracepot = plot(trace_potential, label="Trace potential", yaxis=:log)
+savefig(p_tracepot, string("tracepot_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
+
+savefig(pl, string("trajectories_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
+
 
 # positions1 = [chain_ZZS[i].position[1] for i = 1:iter];
 # positions2 = [chain_ZZS[i].position[2] for i = 1:iter];

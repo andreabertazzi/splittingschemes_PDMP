@@ -25,7 +25,7 @@ end
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 10_000, 10_000
+n_samples, n_adapts = 10_000, 2_000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)
@@ -33,7 +33,8 @@ diff_fun(x) = [interaction_pot(x), interaction_pot_grad(x)]
 hamiltonian = Hamiltonian(metric, ℓπ, diff_fun)
 
 # Define a leapfrog solver, with initial step size chosen heuristically
-initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)
+# initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)
+initial_ϵ = 1e-10
 integrator = Leapfrog(initial_ϵ)
 
 # Define an HMC sampler, with the following components
@@ -48,8 +49,12 @@ adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integra
 #   - `stats` will store diagnostic statistics for each sample
 samples, stats = sample(hamiltonian, proposal, initial_θ, n_samples, adaptor, n_adapts; progress=true)
 
-display(plot(reduce(hcat,samples)'))
+p_aHMC = plot(reduce(hcat,samples)',legend=:no, title="Trajectories aHMC")
+display(p_aHMC)
+# savefig(p_aHMC, string("trajectories_advancedHMC.pdf"))
 
+
+## Running our own codes
 l = 1
 x_init = randn(N)/l
 sort!(x_init)
@@ -65,6 +70,7 @@ MD_UKLA = UKLA(interaction_pot_grad, δ, iter, K, η, x_init, v_init)
 MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, iter, K, η, x_init, v_init)
 plot(reduce(hcat,getPosition(MD_UKLA))', ylims = [-5,5], xlims = [1,500],legend=:no, title="Trajectories UKLA" )
 p = plot(reduce(hcat,getPosition(MD_HMC))', ylims = [-5,5], xlims = [1,5000],legend=:no, title="Trajectories HMC" )
+
 # savefig(p, string("trajectories_HMC.pdf"))
 
 #display(interaction_pot(MD_UKLA[1].position))

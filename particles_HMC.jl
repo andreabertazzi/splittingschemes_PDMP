@@ -2,7 +2,7 @@ using AdvancedHMC, Distributions, Plots
 using LinearAlgebra
 include("algorithms.jl")
 # Choose parameter dimensionality and initial parameter value
-N = 10
+N = 100
 l = 100
 initial_θ = (collect(1:N) .- N / 2) ./ l
 
@@ -25,7 +25,7 @@ end
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 20_000, 10_000
+n_samples, n_adapts = 10_000, 10_000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)
@@ -50,21 +50,25 @@ samples, stats = sample(hamiltonian, proposal, initial_θ, n_samples, adaptor, n
 
 display(plot(reduce(hcat,samples)'))
 
+l = 1
 x_init = randn(N)/l
 sort!(x_init)
 v_init = randn(N)
-δ = initial_ϵ
+# δ = initial_ϵ
+δ = 1e-20
 iter = 1 * 10^4
 γ = 1.0;
 η = exp(-δ * γ)
 K = 1
-l = 1
 
 x_init=initial_θ
 v_init=randn(size(x_init))
 
 MD_UKLA = UKLA(interaction_pot_grad, δ, iter, K, η, x_init, v_init)
 MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, iter, K, η, x_init, v_init)
+plot(reduce(hcat,getPosition(MD_UKLA))', ylims = [-5,5], xlims = [1,500],legend=:no, title="Trajectories UKLA" )
+p = plot(reduce(hcat,getPosition(MD_HMC))', ylims = [-5,5], xlims = [1,5000],legend=:no, title="Trajectories HMC" )
+# savefig(p, string("trajectories_HMC.pdf"))
 
 #display(interaction_pot(MD_UKLA[1].position))
 logpi_trace_UKLA = vec(getPosition(MD_UKLA, want_array=true, observable=interaction_pot))

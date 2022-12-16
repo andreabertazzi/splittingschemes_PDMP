@@ -49,7 +49,6 @@ for j = 1:100
     # p = plot!(positions, legend=:no)
     c = positions - mu'
     global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", ylims=[-4,4])
-    # pos[j,:] -= mu'
 end
 
 display(pl)

@@ -7,7 +7,7 @@ include("imaging_utils.jl")
 
 
 N = 5 # number of particles
-iter = 10^7 # number of iterations
+iter = 10^6 # number of iterations
 δ = 1e-3
 
 a = 10.0
@@ -19,10 +19,6 @@ Wprime(r) = a * r / sqrt(1+r^2)
 
 function interaction_pot(x::Vector{Float64})
     return sum(V.(x[1:end-1] - x[2:end])) + sum(W.(x .- x')) / (2 * length(x))
-end
-
-function interaction_pot_grad(x::Vector{Float64})
-    return vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])) + sum(Wprime.(x .- x'), dims=2) / (length(x)))
 end
 
 Vrates(x,v,i)   = define_Vrates(Vprime, x, v, i, N)
@@ -37,8 +33,8 @@ p = plot()
 pos = getPosition(chain_ZZS; want_array=true)
 mu = mean(pos; dims = 1)
 trace_potential = [interaction_pot(pos[:,i]) for i=1:iter+1]
-plot(trace_potential, label="Trace potential")
-plot(mu, label="baricentre")
+display(plot(trace_potential, label="Trace potential"))
+display(plot(mu, label="baricentre"))
 
 p = plot()
 for j = 1:N

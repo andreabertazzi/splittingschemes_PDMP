@@ -25,7 +25,7 @@ end
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 2_000, 1_000
+n_samples, n_adapts = 20_000, 10_000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)
@@ -50,21 +50,25 @@ samples, stats = sample(hamiltonian, proposal, initial_θ, n_samples, adaptor, n
 
 display(plot(reduce(hcat,samples)'))
 
+x_init = randn(N)/l
+sort!(x_init)
+v_init = randn(N)
 δ = initial_ϵ
-N = 2 * 10^5
+iter = 1 * 10^4
 γ = 1.0;
 η = exp(-δ * γ)
 K = 1
+l = 1
 
-MD_UKLA = UKLA(interaction_pot_grad, δ, N, K, η, x_init, v_init)
-MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, N, K, η, x_init, v_init)
+MD_UKLA = UKLA(interaction_pot_grad, δ, iter, K, η, x_init, v_init)
+MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, iter, K, η, x_init, v_init)
 
 #display(interaction_pot(MD_UKLA[1].position))
 logpi_trace_UKLA = vec(getPosition(MD_UKLA, want_array=true, observable=interaction_pot))
 logpi_trace_HMC = vec(getPosition(MD_HMC, want_array=true, observable=interaction_pot))
 
-plot(logpi_trace_UKLA, label="UKLA")
-display(plot!(logpi_trace_HMC, label="HMC"))
+plot(logpi_trace_UKLA, label="UKLA", yaxis=:log)
+display(plot!(logpi_trace_HMC, label="HMC",yaxis=:log))
 
 barycent(x) = mean(x)
 mean_UKLA = vec(getPosition(MD_UKLA, want_array=true, observable=barycent))

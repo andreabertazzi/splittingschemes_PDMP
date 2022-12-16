@@ -46,7 +46,7 @@ function define_Vrates(Vprime::Function, x::Vector{<:Real}, v::Vector{<:Real}, i
     else
       error("Index larger than number of particles")
     end
-  end
+end
   
 function define_Wrates(Wprime::Function, x::Vector{<:Real}, v::Vector{<:Real}, i::Integer, j::Integer, N::Integer)
     if (i <= N) && (j <= N-1)

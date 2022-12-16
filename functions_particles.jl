@@ -135,3 +135,14 @@ function thinned_splitting_zzs_particles(
     chain
 
 end
+
+function compute_variance_particles(skele::Vector{skeleton}, baricentre::Vector{<:Real})
+
+    variance = Vector{Float64}(undef, 0)
+    N = size(skele[1].position,1)
+    for i = 1 : length(skele)
+        temp = sum((skele[i].position .- baricentre[i]).^2) / N
+        push!(variance, copy(temp))
+    end
+    variance 
+end

@@ -68,7 +68,6 @@ function HMC(∇U::Function,
         #       M = M + (x_prop - M) / n
         α = min(1, exp(-U(x_prop)+ U(x) - norm(v_prop)^2/2  + norm(v)^2/2))
         acc_rej = rand(Bernoulli(α), 1)[1]
-        print(acc_rej, α,'\n')
         if acc_rej
             x = x_prop
             v = v_prop

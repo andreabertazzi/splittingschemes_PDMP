@@ -25,7 +25,7 @@ end
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 10_000, 10_000
+n_samples, n_adapts = 1000000, 1000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)
@@ -60,7 +60,7 @@ v_init=randn(size(x_init))
 MD_UKLA = UKLA(interaction_pot_grad, δ, iter, K, η, x_init, v_init)
 MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, iter, K, η, x_init, v_init)
 
-test_fun(x)=mean((x-mean(x)).^2)
+test_fun(x)=mean((x.-mean(x)).^2)
 
 plot(reduce(hcat,getPosition(MD_UKLA))', ylims = [-5,5], xlims = [1,500],legend=:no, title="Trajectories UKLA" )
 p = plot(reduce(hcat,getPosition(MD_HMC))', ylims = [-5,5], xlims = [1,5000],legend=:no, title="Trajectories HMC" )
@@ -72,7 +72,7 @@ var_trace_HMC = vec(getPosition(MD_HMC, want_array=true, observable=test_fun))
 
 plot(var_trace_UKLA, label="UKLA")
 length(samples)
-long_logpi_trace=Array{Float64}(undef, length(samples))
+long_var_trace=Array{Float64}(undef, length(samples))
 for iii=1:length(samples)
     long_var_trace[iii]=test_fun(samples[iii])
 end

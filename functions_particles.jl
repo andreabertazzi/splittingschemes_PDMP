@@ -87,6 +87,27 @@ function splitting_zzs_particles(
 
 end
 
+
+function splitting_zzs_particles(
+    Vrates::Function,
+    Wrates::Function,
+    ub_W::Real,
+    δ::Float64,
+    N::Integer,
+    iter::Integer,
+    thin_iter::Integer,
+    x_init::Vector{<:Real},
+    v_init::Vector{Int64})
+
+    if thin_iter == 1
+        splitting_zzs_particles(Vrates,Wrates,ub_W,δ,N,iter,x_init,v_init)
+    else
+        thinned_splitting_zzs_particles(Vrates,Wrates,ub_W,δ,N,iter,thin_iter,x_init,v_init)
+    end
+
+end
+
+
 function thinned_splitting_zzs_particles(
     Vrates::Function,
     Wrates::Function,

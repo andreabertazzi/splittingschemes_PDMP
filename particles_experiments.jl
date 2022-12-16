@@ -5,12 +5,12 @@ include("moves_samplers.jl")
 include("algorithms.jl")
 include("functions_particles.jl")
 
-N = 10 # number of particles
-iter = 10^6 # number of iterations per thinning / number of iterations
-num_thin = 1 * 10^5 # number of thinned samples
+N = 100 # number of particles
+iter = 1 * 10^2 # number of iterations per thinned sample
+thin_iter = 10^5 # number of thinned samples want to get. If ==1 then no thinning.
 δ = 1e-5
 
-a = 10.
+a = 1.
 V(r) = (1/r^12) - (1/r^6)
 W(r) = a * sqrt(1 + r^2)
 
@@ -35,8 +35,8 @@ b = 1
 x_init = randn(N)/l
 sort!(x_init)
 v_init = rand((-1,1),N)
-chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,x_init,v_init);
-# chain_ZZS = thinned_splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,num_thin,x_init,v_init);
+chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,thin_iter,x_init,v_init);
+# chain_ZZS = thinned_splitting_zzs_particles(Vrates,Wrates,a,δ,N,thin_iter,iter,x_init,v_init);
 
 
 pos = getPosition(chain_ZZS; want_array=true)
@@ -46,7 +46,11 @@ mu = mean(pos; dims = 1)
 pl = plot()
 for j = 1:N
     positions = [chain_ZZS[i].position[j] for i = 1:length(chain_ZZS)];
-    p = plot!(positions, legend=:no)
+    global pl = plot!(positions, 
+     legend=:no, 
+     title = "Trajectories",
+    #  ylims = [-3,3],
+     )
     # c = positions - mu'
     # global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", 
             # ylims=[-4,4],
@@ -55,12 +59,12 @@ end
 
 display(pl)
 plot(mu', label="baricentre")
-# trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
-# display(plot(trace_potential, label="Trace potential", yaxis=:log))
+savefig(pl, string("baricentre_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
+trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
+display(plot(trace_potential, label="Trace potential", yaxis=:log))
+savefig(pl, string("tracepot_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
 
-
-
-# savefig(p, string("trajectories.pdf"))
+# savefig(pl, string("trajectories_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
 
 # positions1 = [chain_ZZS[i].position[1] for i = 1:iter];
 # positions2 = [chain_ZZS[i].position[2] for i = 1:iter];

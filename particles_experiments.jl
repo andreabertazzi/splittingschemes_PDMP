@@ -8,9 +8,9 @@ include("functions_particles.jl")
 N = 100 # number of particles
 iter = 10^4 # number of iterations per thinning / number of iterations
 num_thin = 1 * 10^5 # number of thinned samples
-δ = 1e-4
+δ = 1e-5
 
-a = .01
+a = 1.
 V(r) = (1/r^12) - (1/r^6)
 W(r) = a * sqrt(1 + r^2)
 
@@ -26,7 +26,7 @@ Wrates(x,v,i,j) = define_Wrates(Wprime, x, v, i, j, N)
 
 l = 1
 b = 1
-nr_top = convert(Int,ceil(N/2))
+# nr_top = convert(Int,ceil(N/2))
 # x_init = zeros(N)
 # x_init[1:nr_top] = b .+ collect(1:nr_top)/l
 # x_init[nr_top+1:N] = -b .- collect((nr_top+1):N)/l
@@ -43,19 +43,19 @@ pos = getPosition(chain_ZZS; want_array=true)
 mu = mean(pos; dims = 1)
 # plot(mu', label="baricentre")
 
-p = plot()
+pl = plot()
 for j = 1:100
     positions = [chain_ZZS[i].position[j] for i = 1:length(chain_ZZS)];
     # p = plot!(positions, legend=:no)
     c = positions - mu'
-    p = plot!(c, legend=:no, title="Trajectories subtracting the baricentre")
+    global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", ylims=[-4,4])
     # pos[j,:] -= mu'
 end
 
-display(p)
-plot(mu', label="baricentre")
-trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
-display(plot(trace_potential, label="Trace potential", yaxis=:log))
+display(pl)
+# plot(mu', label="baricentre")
+# trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
+# display(plot(trace_potential, label="Trace potential", yaxis=:log))
 
 
 

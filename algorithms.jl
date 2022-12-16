@@ -45,7 +45,6 @@ function HMC(∇U::Function,
     x_init::Vector{Float64},
     v_init::Vector{Float64};
     N_store::Integer=N)
-
     chain = skeleton[]
     #push!(chain, skeleton(x_init, v_init, 0, x_init))
     push!(chain, skeleton(x_init, v_init, 0))
@@ -54,9 +53,11 @@ function HMC(∇U::Function,
     gradU = ∇U(x_prop)
     v = v_init
     v_prop = v
+    num_rej=0
     #    M = x_init
     for n = 1:N
-        v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
+        x_prop=x
+        v_prop = η * v + sqrt(1 - η^2) * randn(size(x))
         for k = 1:K
             v_prop = v_prop - δ * gradU / 2
             x_prop = x_prop + δ * v_prop
@@ -65,18 +66,21 @@ function HMC(∇U::Function,
         end
         v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
         #       M = M + (x_prop - M) / n
-        α = min(1, exp(U(x_prop) + dot(v_prop, v_prop) - U(x) - dot(v, v)))
+        α = min(1, exp(-U(x_prop)+ U(x) - norm(v_prop)^2/2  + norm(v)^2/2))
         acc_rej = rand(Bernoulli(α), 1)[1]
         if acc_rej
             x = x_prop
             v = v_prop
+        else
+            num_rej+=1
         end
         #x=x+acc_rej*(x_prop-x)
         if mod(n,round(N/N_store))==0
             push!(chain, skeleton(copy(x), copy(v), n * δ))
         end
     end
-    chain
+    print("Proportion of rejected steps is ", num_rej/N)
+    return chain
 end
 
 function ULA_sim(∇U::Function,

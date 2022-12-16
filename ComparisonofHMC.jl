@@ -92,6 +92,15 @@ long_var_av[1]=test_fun(samples[1])
 for iii=2:length(samples)
     long_var_av[iii]=long_var_av[iii-1]+(test_fun(samples[iii])-long_var_av[iii-1])/iii
 end
-plot!(long_var_av, label="Advanced HMC")
+plot(long_var_av, label="Advanced HMC")
 display(plot!(getTimes(MD_HMC)/δ,var_av_HMC, label="HMC"))
 savefig("errorplot.png")
+
+pl = plot()
+fun(x) = x.-mean(x)
+plot(reduce(hcat,fun.(samples))',
+    legend=:no, 
+     title = "Trajectories",
+    #  xlims = [0,00],
+     )
+

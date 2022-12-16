@@ -5,12 +5,12 @@ include("moves_samplers.jl")
 include("algorithms.jl")
 include("functions_particles.jl")
 
-N = 100 # number of particles
+N = 10 # number of particles
 iter = 1 * 10^3 # number of iterations per thinned sample
 thin_iter = 10^4 # number of thinned samples want to get. If ==1 then no thinning.
-δ = 1e-5
+δ = 1e-4
 
-a = 100.
+a = 1.
 V(r) = (1/r^12) - (1/r^6)
 W(r) = a * sqrt(1 + r^2)
 
@@ -39,25 +39,33 @@ chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,thin_iter,x_init,v
 # chain_ZZS = thinned_splitting_zzs_particles(Vrates,Wrates,a,δ,N,thin_iter,iter,x_init,v_init);
 
 
-pos = getPosition(chain_ZZS; want_array=true)
-mu = mean(pos; dims = 1)
+# pos = getPosition(chain_ZZS; want_array=true)
+# mu = mean(pos; dims = 1)
 # plot(mu', label="baricentre")
 
-pl = plot()
-for j = 1:N
-    positions = [chain_ZZS[i].position[j] for i = 1:length(chain_ZZS)];
-    global pl = plot!(positions, 
-     legend=:no, 
-     title = "Trajectories",
-    #  ylims = [-3,3],
-     )
-    # c = positions - mu'
-    # global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", 
-            # ylims=[-4,4],
-            # )
-end
+pos = getPosition(chain_ZZS)
+fun(x) = x.-mean(x)
+plot(reduce(hcat,fun.(pos))',
+    legend=:no, 
+    title = "Trajectories",
+#  xlims = [0,100],
+    )
 
-display(pl)
+# pl = plot()
+# for j = 1:N
+#     positions = [chain_ZZS[i].position[j] for i = 1:length(chain_ZZS)];
+#     global pl = plot!(positions, 
+#      legend=:no, 
+#      title = "Trajectories",
+#     #  ylims = [-3,3],
+#      )
+#     # c = positions - mu'
+#     # global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", 
+#             # ylims=[-4,4],
+#             # )
+# end
+
+# display(pl)
 # savefig(pl, string("trajectories_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
 
 
@@ -67,7 +75,13 @@ display(pl)
 # p_tracepot = plot(trace_potential, label="Trace potential", yaxis=:log)
 # savefig(p_tracepot, string("tracepot_a",a,"_thin_",thin_iter,"_itersperthin_",iter,".pdf"))
 
-emp_var = compute_variance_particles(chain_ZZS, vec(mu))
+fun_var(x)=mean((x.-mean(x)).^2)
+emp_var=Array{Float64}(undef, length(chain_ZZS))
+emp_var[1]=fun_var(pos[1])
+for iii=2:length(chain_ZZS)
+    emp_var[iii]=emp_var[iii-1]+(fun_var(pos[iii])-emp_var[iii-1])/iii
+end
+# emp_var = compute_variance_particles(chain_ZZS, mean.(pos))
 plot(emp_var, label = "ZZS", ylabel = "Empirical variance", xlabel = "Thinned iterations")
 
 

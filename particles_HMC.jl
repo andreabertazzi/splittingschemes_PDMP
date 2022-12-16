@@ -2,7 +2,7 @@ using AdvancedHMC, Distributions, Plots
 using LinearAlgebra
 include("algorithms.jl")
 # Choose parameter dimensionality and initial parameter value
-N = 5
+N = 10
 # l = 100
 # initial_θ = (collect(1:N) .- N / 2) ./ l
 initial_θ = sort(randn(N))
@@ -26,7 +26,7 @@ end
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 10_000, 20_000
+n_samples, n_adapts = 10_000, 2_000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)

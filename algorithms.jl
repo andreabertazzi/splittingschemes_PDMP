@@ -43,7 +43,8 @@ function HMC(∇U::Function,
     K::Integer,
     η::Float64,
     x_init::Vector{Float64},
-    v_init::Vector{Float64})
+    v_init::Vector{Float64};
+    N_store::Integer=N)
 
     chain = skeleton[]
     #push!(chain, skeleton(x_init, v_init, 0, x_init))
@@ -71,8 +72,9 @@ function HMC(∇U::Function,
             v = v_prop
         end
         #x=x+acc_rej*(x_prop-x)
-        push!(chain, skeleton(copy(x), copy(v), n * δ))
-        #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
+        if mod(n,round(N/N_store))==0
+            push!(chain, skeleton(copy(x), copy(v), n * δ))
+        end
     end
     chain
 end

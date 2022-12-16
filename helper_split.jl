@@ -27,6 +27,34 @@ function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Intege
   return position
 end
 
+function getTimes(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false)
+  if i_end == 0
+    i_end = length(skele)
+  end
+  n_samples = i_end - i_start + 1
+  times = Array{Float64,1}(undef, n_samples)
+    for i = i_start:i_end
+      times[i] =skele[i].time
+    end
+  return times
+end
+
+function running_mean(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, observable::Function=identity)
+  if i_end == 0
+    i_end = length(skele)
+  end
+  n_samples = i_end - i_start + 1
+  dim = size(observable(skele[1].position), 1)
+  run_av = Array{Float64,2}(undef, dim, n_samples)
+  run_av[1]= observable(skele[i_start].position)
+    for i = i_start+1:i_end
+      position= observable(skele[i].position)
+      run_av[i]=run_av[i-1]+(position-run_av[i-1])/i
+    end
+  return run_av
+end
+
+
 function draw_exponential_time(λ::Real)
   if λ <= zero(λ)  # zero of same type as λ
     return Inf

@@ -20,8 +20,8 @@ function interaction_pot_grad(x::Vector{Float64})
     return vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])) + sum(Wprime.(x .- x'), dims=2) / (length(x)))
 end
 
-ℓπ(θ) = -interaction_pot(θ)
-#ℓπ(θ) = logpdf(MvNormal(zeros(N), I), θ)
+#ℓπ(θ) = -interaction_pot(θ)
+ℓπ(θ) = logpdf(MvNormal(zeros(N), I), θ)
 
 # Set the number of samples to draw and warmup iterations
 n_samples, n_adapts = 10000, 1000
@@ -59,10 +59,10 @@ K = 1
 x_init=initial_θ
 v_init=randn(size(x_init))
 
-MD_UKLA = UKLA(interaction_pot_grad, δ, iter, K, η, x_init, v_init)
-MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, iter, K, η, x_init, v_init)
-#MD_UKLA = UKLA(stdnorm_grad, δ, iter, K, η, x_init, v_init)
-#MD_HMC = HMC(stdnorm_grad, stdnorm, δ, iter, K, η, x_init, v_init)
+#MD_UKLA = UKLA(interaction_pot_grad, δ, iter, K, η, x_init, v_init)
+#MD_HMC = HMC(interaction_pot_grad, interaction_pot, δ, iter, K, η, x_init, v_init)
+MD_UKLA = UKLA(stdnorm_grad, δ, iter, K, η, x_init, v_init)
+MD_HMC = HMC(stdnorm_grad, stdnorm, δ, iter, K, η, x_init, v_init)
 test_fun(x)=mean((x.-mean(x)).^2)
 
 plot(reduce(hcat,getPosition(MD_UKLA))', ylims = [-5,5], xlims = [1,500],legend=:no, title="Trajectories UKLA" )

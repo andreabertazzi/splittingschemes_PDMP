@@ -5,12 +5,12 @@ include("moves_samplers.jl")
 include("algorithms.jl")
 include("functions_particles.jl")
 
-N = 100 # number of particles
-iter = 10^4 # number of iterations per thinning / number of iterations
+N = 10 # number of particles
+iter = 10^6 # number of iterations per thinning / number of iterations
 num_thin = 1 * 10^5 # number of thinned samples
 δ = 1e-5
 
-a = 1.
+a = 10.
 V(r) = (1/r^12) - (1/r^6)
 W(r) = a * sqrt(1 + r^2)
 
@@ -44,15 +44,17 @@ mu = mean(pos; dims = 1)
 # plot(mu', label="baricentre")
 
 pl = plot()
-for j = 1:100
+for j = 1:N
     positions = [chain_ZZS[i].position[j] for i = 1:length(chain_ZZS)];
-    # p = plot!(positions, legend=:no)
-    c = positions - mu'
-    global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", ylims=[-4,4])
+    p = plot!(positions, legend=:no)
+    # c = positions - mu'
+    # global pl = plot!(c, legend=:no, title="Trajectories subtracting the baricentre", 
+            # ylims=[-4,4],
+            # )
 end
 
 display(pl)
-# plot(mu', label="baricentre")
+plot(mu', label="baricentre")
 # trace_potential = [interaction_pot(pos[:,i]) for i=1:length(chain_ZZS)]
 # display(plot(trace_potential, label="Trace potential", yaxis=:log))
 

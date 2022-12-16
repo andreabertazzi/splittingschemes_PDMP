@@ -13,10 +13,14 @@ for i = 1 : N
     while min(time_1,time_2) <= δ-t
             if time_1 < time_2
                 t += time_1
+                # println("have switched because of V in particle $i")
+                # println("current velocity is ", v[i])
                 flip!(v,i)
+                # println("new velocity is ", v[i])
                 time_2 -= time_1
                 time_1 = Inf
             else
+                # println("have switched because of W in particle $i")
                 t += time_2
                 J = rand(1:(N-1))
                 true_rate = rate2(x,v,i,J) 
@@ -42,7 +46,7 @@ function define_Vrates(Vprime::Function, x::Vector{<:Real}, v::Vector{<:Real}, i
     elseif i < N
         return pos_part(v[i] * ( Vprime(x[i]-x[i+1]) - Vprime(x[i-1]-x[i]) ))
     elseif i==N
-      return pos_part(v[N] * Vprime(x[N-1]-x[N]))
+      return pos_part(-v[N] * Vprime(x[N-1]-x[N]))
     else
       error("Index larger than number of particles")
     end

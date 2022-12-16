@@ -2,9 +2,10 @@ using AdvancedHMC, Distributions, Plots
 using LinearAlgebra
 include("algorithms.jl")
 # Choose parameter dimensionality and initial parameter value
-N = 100
+N = 4
 l = 100
-initial_θ = (collect(1:N) .- N / 2) ./ l
+# initial_θ = (collect(1:N) .- N / 2) ./ l
+initial_θ = sort(randn(N))
 
 # Define the target distribution
 a = 1.0
@@ -25,7 +26,7 @@ end
 ℓπ(θ) = -interaction_pot(θ)
 
 # Set the number of samples to draw and warmup iterations
-n_samples, n_adapts = 10_000, 2_000
+n_samples, n_adapts = 1_000_000, 20_000
 
 # Define a Hamiltonian system
 metric = DiagEuclideanMetric(N)
@@ -33,8 +34,8 @@ diff_fun(x) = [interaction_pot(x), interaction_pot_grad(x)]
 hamiltonian = Hamiltonian(metric, ℓπ, diff_fun)
 
 # Define a leapfrog solver, with initial step size chosen heuristically
-# initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)
-initial_ϵ = 1e-10
+initial_ϵ = find_good_stepsize(hamiltonian, initial_θ)
+# initial_ϵ = 1e-10
 integrator = Leapfrog(initial_ϵ)
 
 # Define an HMC sampler, with the following components
@@ -44,7 +45,7 @@ integrator = Leapfrog(initial_ϵ)
 proposal = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator)
 adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator))
 
-# Run the sampler to draw samples from the specified Gaussian, where
+# Run the sampler to draw sampstatsles from the specified Gaussian, where
 #   - `samples` will store the samples
 #   - `stats` will store diagnostic statistics for each sample
 samples, stats = sample(hamiltonian, proposal, initial_θ, n_samples, adaptor, n_adapts; progress=true)

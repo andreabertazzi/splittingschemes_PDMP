@@ -444,34 +444,6 @@ function euler_bps_PD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float
 end
 
 
-function splitting_zzs_particles(
-    Vrates::Function,
-    Wrates::Function,
-    ub_W::Real,
-    δ::Float64,
-    N::Integer,
-    iter::Integer,
-    x_init::Vector{<:Real},
-    v_init::Vector{Int64})
-
-    chain = Vector{skeleton}(undef,iter+1)
-    chain[1] = skeleton(copy(x_init), copy(v_init), 0);
-    x = copy(x_init)
-    v = copy(v_init)
-    for n = 1 : iter
-       x = x + v * δ/2
-       jump_part_particles!(Vrates, Wrates, ub_W, x, v, δ, N)
-       x = x + v * δ/2
-       chain[n+1] = skeleton(copy(x), copy(v), n * δ);
-    end
-
-    chain
-
-end
-
-
-
-
 tolerance = 1e-7
 
 function BPS(∇E::Function, Q::Matrix{Float64}, T::Real, x_init::Vector{Float64} = Vector{Float64}(undef,0), v_init::Vector{Float64} = Vector{Float64}(undef,0), refresh_rate::Float64 = 1.0)

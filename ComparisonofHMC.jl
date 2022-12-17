@@ -86,15 +86,15 @@ var_av_UKLA = vec(running_mean(MD_UKLA, observable=test_fun))
 var_av_HMC = vec(running_mean(MD_HMC,observable=test_fun))
 
 plot(getTimes(MD_UKLA)/δ,var_av_UKLA, label="UKLA")
-length(samples)
+# length(samples)
 long_var_av=Array{Float64}(undef, length(samples))
 long_var_av[1]=test_fun(samples[1])
 for iii=2:length(samples)
     long_var_av[iii]=long_var_av[iii-1]+(test_fun(samples[iii])-long_var_av[iii-1])/iii
 end
-plot(long_var_av, label="Advanced HMC")
+plot!(long_var_av, label="Advanced HMC")
 display(plot!(getTimes(MD_HMC)/δ,var_av_HMC, label="HMC"))
-savefig("errorplot.png")
+# savefig("errorplot.png")
 
 pl = plot()
 fun(x) = x.-mean(x)

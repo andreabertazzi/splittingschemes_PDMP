@@ -8,7 +8,7 @@ include("functions_particles.jl")
 N = 10 # number of particles
 iter = 1 * 10^3 # number of iterations per thinned sample
 thin_iter = 10^4 # number of thinned samples want to get. If ==1 then no thinning.
-δ = 1e-4
+δ = 1e-2
 
 a = 1.
 V(r) = (1/r^12) - (1/r^6)

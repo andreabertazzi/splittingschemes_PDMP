@@ -1,14 +1,16 @@
-using Plots
+using Plots, BenchmarkTools, LinearAlgebra
+using AdvancedHMC, Distributions, ForwardDiff
 # using JLD2  # For saving data
 include("helper_split.jl")
 include("moves_samplers.jl")
 include("algorithms.jl")
 include("functions_particles.jl")
 
-N = 10 # number of particles
+N = 30 # number of particles
 iter = 1 * 10^3 # number of iterations per thinned sample
-thin_iter = 3 * 10^4 # number of thinned samples want to get. If ==1 then no thinning.
-δ = 1e-4
+thin_iter = 1 * 10^4 # number of thinned samples want to get. If ==1 then no thinning.
+δ = 1e-3
+n_samples, n_adapts = 30000, 1000
 
 a = 1.
 V(r) = (1/r^12) - (1/r^6)
@@ -35,7 +37,7 @@ p_var = plot()
 
 ## Run Zig-Zag 
 if run_ZZS
-    chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,thin_iter,x_init,v_init);
+    runtime_ZZS = @elapsed (chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,thin_iter,x_init,v_init));
     pos = getPosition(chain_ZZS)
     pl = plot(reduce(hcat,fun.(pos))',
         legend=:no, 
@@ -57,7 +59,6 @@ end
 
 if run_advHMC
     ℓπ(θ) = -interaction_pot(θ)
-    n_samples, n_adapts = 30000, 1000
 
     # Define a Hamiltonian system
     metric = DiagEuclideanMetric(N)
@@ -70,7 +71,7 @@ if run_advHMC
     proposal = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator)
     adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator))
 
-    samples, stats = sample(hamiltonian, proposal, x_init, n_samples, adaptor, n_adapts; progress=true)
+    runtime_advHMC = @elapsed (samples, stats = sample(hamiltonian, proposal, x_init, n_samples, adaptor, n_adapts; progress=true))
 
     pl_HMC = plot(reduce(hcat,fun.(samples))',
         legend=:no, 

@@ -6,12 +6,20 @@ include("moves_samplers.jl")
 include("algorithms.jl")
 include("functions_particles.jl")
 
-N = 30 # number of particles
-iter = 1 * 10^3 # number of iterations per thinned sample
-thin_iter = 1 * 10^4 # number of thinned samples want to get. If ==1 then no thinning.
+N = 2 # number of particles
+iter = 1 * 10^2 # number of iterations per thinned sample
+thin_iter = 1 * 10^5 # number of thinned samples want to get. If ==1 then no thinning.
+iter_UKLA = 10^6
+thin_iter_UKLA = 5 * 10^4
 δ = 1e-3
-n_samples, n_adapts = 30000, 1000
+δ_UKLA = 1e-4
+n_samples, n_adapts = 100000, 1000
+run_ZZS = true
+run_advHMC = true
+run_UKLA = false
 
+
+## Set up the target
 a = 1.
 V(r) = (1/r^12) - (1/r^6)
 W(r) = a * sqrt(1 + r^2)
@@ -19,8 +27,9 @@ W(r) = a * sqrt(1 + r^2)
 Vprime(r) = -12 * (1/r^13) + 6 * (1/r^7)
 Wprime(r) = a * r / sqrt(1+r^2)
 
-function interaction_pot(x::Vector{Float64})
-    return sum(V.(x[1:end-1] - x[2:end])) + sum(W.(x .- x')) / (2 * length(x))
+interaction_pot(x)=sum(V.(x[1:end-1] - x[2:end])) + sum(W.(x .- x')) / (2 * length(x))
+function interaction_pot_grad(x::Vector{Float64})
+    return vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])) + sum(Wprime.(x .- x'), dims=2) / (length(x)))
 end
 
 Vrates(x,v,i)   = define_Vrates(Vprime, x, v, i, N)
@@ -34,6 +43,7 @@ v_init = rand((-1,1),N)
 fun_var(x)=mean((x.-mean(x)).^2)
 fun(x) = x.-mean(x)
 p_var = plot()
+
 
 ## Run Zig-Zag 
 if run_ZZS
@@ -50,14 +60,17 @@ if run_ZZS
     for iii=2:length(chain_ZZS)
         emp_var[iii]=emp_var[iii-1]+(fun_var(pos[iii])-emp_var[iii-1])/iii
     end
-    p_var = plot!(emp_var, label = "ZZS", ylabel = "Empirical variance", xlabel = "Iterations")
 
+    p_var = plot!(p_var,emp_var, label = "ZZS", ylabel = "Empirical variance", xlabel = "Iterations")
+
+    println("Run time for ZZS is $runtime_ZZS seconds")
 end
 
 
 ## Run Advanced HMC
 
 if run_advHMC
+    initial_θ = x_init
     ℓπ(θ) = -interaction_pot(θ)
 
     # Define a Hamiltonian system
@@ -71,28 +84,72 @@ if run_advHMC
     proposal = NUTS{MultinomialTS,GeneralisedNoUTurn}(integrator)
     adaptor = StanHMCAdaptor(MassMatrixAdaptor(metric), StepSizeAdaptor(0.8, integrator))
 
-    runtime_advHMC = @elapsed (samples, stats = sample(hamiltonian, proposal, x_init, n_samples, adaptor, n_adapts; progress=true))
-
+    samples = Vector{Vector{Float64}}(undef,n_samples)
+    runtime_advHMC = @elapsed((samples, stats) = sample(hamiltonian, proposal, initial_θ, n_samples, adaptor, n_adapts; progress=true));
+    # samples, stats = sample(hamiltonian, proposal, initial_θ, n_samples, adaptor, n_adapts; progress=true)
     pl_HMC = plot(reduce(hcat,fun.(samples))',
         legend=:no, 
         title = "Trajectories HMC",
         #  xlims = [0,100],
         )
     display(pl_HMC)
-    long_var_av=Array{Float64}(undef, length(samples))
-    long_var_av[1]=fun_var(samples[1])
+
+    var_advHMC=Array{Float64}(undef, length(samples))
+    var_advHMC[1]=fun_var(samples[1])
     for iii=2:length(samples)
-        long_var_av[iii]=long_var_av[iii-1]+(fun_var(samples[iii])-long_var_av[iii-1])/iii
+        var_advHMC[iii]=var_advHMC[iii-1]+(fun_var(samples[iii])-var_advHMC[iii-1])/iii
     end
-    p_var = plot!(long_var_av, label="HMC")
+    # p_var = plot!(long_var_av, label="HMC")
+
+    pl_HMC = plot(reduce(hcat,fun.(samples))',
+        legend=:no, 
+        title = "Trajectories HMC",
+        #  xlims = [0,100],
+        )
+    p_var = plot!(p_var,var_advHMC, label="HMC")
+
+    println("Run time for AdvancedHMC is $runtime_advHMC seconds")
 
 end
 
-display(p_var)
+## Run UKLA
+if run_UKLA
+    ℓπ(θ) = -interaction_pot(θ)
+    metric = DiagEuclideanMetric(N)
+    hamiltonian = Hamiltonian(metric, ℓπ,  ForwardDiff)
+    # δ = find_good_stepsize(hamiltonian, initial_θ)
+    # δ = 0.008 
+    iter = n_samples
+    fric = 1.0;
+    η = exp(-δ * fric)
+    K = 1
+    v_init=randn(size(x_init))
 
+    runtime_UKLA = @elapsed(MD_UKLA = UKLA(interaction_pot_grad, δ_UKLA, iter_UKLA, K, η, x_init, v_init,N_store=thin_iter_UKLA))
+    pos = getPosition(MD_UKLA)
+    pl_UKLA = plot(reduce(hcat,fun.(pos))',
+        legend=:no, 
+        title = "Trajectories UKLA",
+    )
+    display(pl_UKLA)
+    emp_var_UKLA=Array{Float64}(undef, length(MD_UKLA))
+    emp_var_UKLA[1]=fun_var(pos[1])
+    for iii=2:length(MD_UKLA)
+        emp_var_UKLA[iii]=emp_var_UKLA[iii-1]+(fun_var(pos[iii])-emp_var_UKLA[iii-1])/iii
+    end
 
+    p_var = plot!(p_var,emp_var_UKLA, label = "UKLA", ylabel = "Empirical variance", xlabel = "Iterations")
 
-## Plots 
+    println("Run time for UKLA is $runtime_UKLA seconds")
+    
+end
+
+# display(p_var)
+## Plots variance
+plot(p_var, ylims=[0,5])
+# p_var = plot(emp_var, label = "ZZS", ylabel = "Empirical variance", xlabel = "Iterations")
+# p_var = plot!(p_var,var_advHMC, label="HMC")
+# plot!(var_advHMC, label="HMC")
 
 # Trajectories 
 

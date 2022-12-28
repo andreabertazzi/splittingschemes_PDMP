@@ -11,25 +11,32 @@ function UKLA(∇U::Function,
     v_init::Vector{Float64};
     N_store::Integer=N)
 
-    chain = skeleton[]
+    # chain = skeleton[]
     #push!(chain, skeleton(x_init, v_init, 0, x_init))
-    push!(chain, skeleton(x_init, v_init, 0))
+    # push!(chain, skeleton(x_init, v_init, 0))
+    chain = Vector{skeleton}(undef, (N_store+1))
+    chain[1] = skeleton(x_init, v_init, 0)
     x = x_init
     v = v_init
+    dim = size(x)
     #   M = x_init
     gradU = ∇U(x)
+    l = 2
     for n = 1:N
-        v = η * v + sqrt(1 - η^2) * randn(size(x))
+        v = η * v + sqrt(1 - η^2) * randn(dim)
         for k = 1:K
             v = v - δ * gradU / 2
             x = x + δ * v
             gradU = ∇U(x)
             v = v - δ * gradU / 2
         end
-        v = η * v + sqrt(1 - η^2) * randn(size(x))
+        v = η * v + sqrt(1 - η^2) * randn(dim)
         #      M=M+(x-M)/n
         if mod(n,round(N/N_store))==0
-            push!(chain, skeleton(copy(x), copy(v), n * δ))
+            chain[l] = skeleton(copy(x), copy(v), n * δ)
+            l += 1
+            # push!(chain, skeleton(copy(x), copy(v), n * δ))
+            print("Simulation progress for UKLA: ", round(n/N*100), "% \r")
         end
         #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
     end

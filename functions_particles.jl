@@ -54,19 +54,6 @@ function define_Vrates(Vprime::Function, x::Vector{<:Real}, v::Vector{<:Real}, i
 end
   
 function define_Wrates(Wprime::Function, x::Vector{<:Real}, v::Vector{<:Real}, i::Integer, j::Integer, N::Integer)
-    # if (i <= N) && (j <= N-1)
-    # #   set_indeces = [collect(1:(i-1)); collect((i+1):N)]
-    # #   return pos_part( v[i] * Wprime(x[i]-x[set_indeces[j]]) )
-    #   if j >= i
-    #     return pos_part( v[i] * Wprime(x[i]-x[j+1]) ) * (N-1)/N
-    #   else
-    #     return pos_part( v[i] * Wprime(x[i]-x[j]) ) * (N-1)/N
-    #   end
-    # if (i <= N) && (j <= N)
-    #     return pos_part( v[i] * Wprime(x[i]-x[j]) ) 
-    # else
-    #   error("Index larger than number of particles")
-    # end
     pos_part( v[i] * Wprime(x[i]-x[j]) ) 
 end
 
@@ -139,7 +126,7 @@ function thinned_splitting_zzs_particles(
             x = x + v * δ/2
         end
         chain[j+1] = skeleton(copy(x), copy(v), iter * j * δ);
-        print("Simulation progress: ", floor(j/num_thin*100), "% \r")
+        print("Simulation progress for ZZS: ", floor(j/num_thin*100), "% \r")
     end
     chain
 

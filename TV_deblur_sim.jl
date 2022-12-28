@@ -19,7 +19,7 @@ factor_ULA = 1.98
 factor_ZZS = 3000
 refresh_rate = 1e-2;
 
-blur_length = 9;
+blur_length = 25;
 N=10^3;   #Number of steps per sample we store
 num_thin = 1 * 10^3;    # Number of samples we store
 num_thin_ctszzs = 1 * 10^5
@@ -27,8 +27,8 @@ thin_low = 3
 BSNRdb = 40;
 # BSNRdb = false
 
-# name = "cman";
-name = "handwritten";
+name = "cman";
+# name = "handwritten";
 # name = "cmansmall";
 f0 = Float64.(load(string("Images/",name,".png")));
 
@@ -309,19 +309,16 @@ save_object(string(respath,"/ULA_psnr_run"), ULA_psnr_run)
 save_object(string(respath,"/ULA_mse_run"), ULA_mse_run)
 end
 
-
+respath = "/Users/abertazzi1/Documents/GitHub/splittingschemes_PDMP/cman copy"
 ZZS_running_mean = load_object(string(respath,"/ZZS_running_mean"))
 # ZZScts_running_mean = load_object(string(respath,"/ZZScts_running_mean"))
 ULA_running_mean = load_object(string(respath,"/ULA_running_mean"))
 # ZZS_mse_run = load(string(respath,"/ZZS_running_mean"))
-# ZZScts_mse_run = load(string(respath,"/ZZScts_running_mean"))
+ZZScts_running_mean = load_object(string(respath,"/ZZScts_running_mean"))
 # ULA_mse_run = load(string(respath,"/ULA_running_mean"))
-ZZS_mse_run = compute_mse_given_mean(ZZS_running_mean, f0_vec, num_thin)
-ULA_mse_run = compute_mse_given_mean(ULA_running_mean, f0_vec, num_thin)
-
-
-# ZZS_running_mean = load(string(respath,"/ZZS_running_mean"))
-# ULA_running_mean = load(string(respath,"/ULA_running_mean"))
+ZZS_mse_run = compute_mse_given_mean(ZZS_running_mean, f0_vec, size(ZZS_running_mean,2)-1)
+ULA_mse_run = compute_mse_given_mean(ULA_running_mean, f0_vec, size(ZZS_running_mean,2)-1)
+ZZScts_mse_run = compute_mse_given_mean(ZZScts_running_mean, f0_vec, size(ZZScts_running_mean,2)-1)
 
 if run_BPS == true
     plot((0:num_thin)*N,ZZS_psnr_run,label="ZZS",
@@ -375,7 +372,11 @@ savefig(plot_recon_all, string(respath,"/recon_all_tv_",name,"_blur_", blur_leng
     display(p_mse)
     savefig(p_mse, string(respath,"/mse_tv_",name,"_blur_", blur_length,".pdf"))
 
+
+
 else
+
+
 #     plot((0:num_thin)*N,ZZS_psnr_run,label="ZZS",
 #     xlabel = "Iterations",
 #     ylabel = "PSNR",
@@ -388,28 +389,28 @@ else
 # display(p_psnr)
 # savefig(p_psnr, string(respath,"/psnr_tv_",name,"_blur_", blur_length,".pdf"))
 plot_recon=plot(p_true,p_noise, layout=(2,1))
-display(plot_recon)
-savefig(plot_recon, string(respath,"/trueandobserved_tv_",name,"_blur_", blur_length,".pdf"))
+# display(plot_recon)
+# savefig(plot_recon, string(respath,"/trueandobserved_tv_",name,"_blur_", blur_length,".pdf"))
 
 
-p_ZZS=plot(Gray.(reshape(ZZS_running_mean[:,end],size(f0))),title="ZZS",axis=([], false))
-p_ZZScont = plot(Gray.(reshape(ZZScts_running_mean[:,end],size(f0))),title="ZZS (cont.)",axis=([], false))
+p_ZZS=plot(Gray.(reshape(ZZS_running_mean[:,end],size(f0))),title="UZZS",axis=([], false))
+p_ZZScont = plot(Gray.(reshape(ZZScts_running_mean[:,end],size(f0))),title="ZZS",axis=([], false))
 p_ULA=plot(Gray.(reshape(ULA_running_mean[:,end],size(f0))),title="ULA",axis=([], false))
-p_ZZS_low = plot(Gray.(reshape(ZZS_running_mean[:,thin_low],size(f0))),title="ZZS",axis=([], false))
-p_ZZScontlow = plot(Gray.(reshape(ZZScts_running_mean[:,thin_low],size(f0))),title="ZZS (cont.)",axis=([], false))
+p_ZZS_low = plot(Gray.(reshape(ZZS_running_mean[:,thin_low],size(f0))),title="UZZS",axis=([], false))
+p_ZZScontlow = plot(Gray.(reshape(ZZScts_running_mean[:,thin_low],size(f0))),title="ZZS",axis=([], false))
 p_ULA_low = plot(Gray.(reshape(ULA_running_mean[:,thin_low],size(f0))),title="ULA",axis=([], false))
 
 
 plot_recon_low=plot(p_ZZS_low,p_ULA_low,p_ZZScontlow)
-display(plot_recon_low)
-savefig(plot_recon_low, string(respath,"/reconlow_tv_",name,"_blur_", blur_length,"_thin_",thin_low,".pdf"))
+# display(plot_recon_low)
+# savefig(plot_recon_low, string(respath,"/reconlow_tv_",name,"_blur_", blur_length,"_thin_",thin_low,".pdf"))
 
-plot_recon_allrecons=plot(p_ZZS_low,p_ULA_low,p_ZZScontlow,p_ZZS,p_ULA,p_ZZScont, layout=(2,3))
-display(plot_recon_allrecons)
-savefig(plot_recon_allrecons, string(respath,"/reconall_tv_",name,"_blur_", blur_length,"_thin_",thin_low,".pdf"))
+# plot_recon_allrecons=plot(p_ZZS_low,p_ULA_low,p_ZZScontlow,p_ZZS,p_ULA,p_ZZScont, layout=(2,3))
+# display(plot_recon_allrecons)
+# savefig(plot_recon_allrecons, string(respath,"/reconall_tv_",name,"_blur_", blur_length,"_thin_",thin_low,".pdf"))
 
 
-plot_recon_allrecons=plot(p_ZZS_low,p_ULA_low,p_ZZScontlow,p_ZZS,p_ULA,p_ZZScont, layout=(2,3),titlefontsize=10, margin = .0mm)
+# plot_recon_allrecons=plot(p_ZZS_low,p_ULA_low,p_ZZScontlow,p_ZZS,p_ULA,p_ZZScont, layout=(2,3),titlefontsize=10, margin = .0mm)
 
 
 # p_ZZS_low = plot(Gray.(reshape(ZZS_running_mean[:,thin_low],size(f0))),title="ZZS",axis=([], false))
@@ -418,25 +419,30 @@ plot_recon_allrecons=plot(p_ZZS_low,p_ULA_low,p_ZZScontlow,p_ZZS,p_ULA,p_ZZScont
 # display(plot_recon_low)
 # savefig(plot_recon_low, string(respath,"/recon_low_tv_",name,"_blur_", blur_length,"_thin_",thin_low,".pdf"))
 
-plot_recon_all=plot(p_true,p_ZZS_low,p_ULA_low,p_ZZScontlow,p_noise,p_ZZS,p_ULA,p_ZZScont,layout=(2,4),titlefontsize=10, margin = .0mm)
+plot_recon_all=plot(p_true,p_ZZS_low,p_ULA_low,p_ZZScontlow,p_noise,p_ZZS,p_ULA,p_ZZScont,layout=(2,4),titlefontsize=12, margin = .0mm)
 display(plot_recon_all)
 savefig(plot_recon_all, string(respath,"/recon_allfigs_tv_",name,"_blur_", blur_length,"_thin_",thin_low,".pdf"))
 
 ## MSE plot
-plot((0:num_thin)*N,ZZS_mse_run,label="ZZS",
+plot((0:length(ZZS_mse_run)-1)*N,ZZS_mse_run,label="UZZS",
         xlabel = "Iterations",
         ylabel = "MSE",
-        legendfontsize=10,
+        legendfontsize=12,
         legend=:topright,
         linewidth = 2,
         yaxis=:log,
         color = "red",
-        xlim = [-5000,2.08*10^5],
-        xticks = [0, 5*10^4,10^5,1.5*10^5,2*10^5],
-        ylim = [10^(-2.28),10^(-1.5)]
+        line =:dot,
+        tickfontsize = 11,
+        guidefontsize=13,
+        # xlim = [-25000,1.08*10^6],
+        xlim = [-5000,2.15*10^5],
+        # xticks = [0, 5*10^4,10^5,1.5*10^5,2*10^5],
+        ylim = [10^(-2.28),10^(-1.45)]
         )
-plot!((0:num_thin)*N,ZZScts_mse_run,label="ZZS (continuous)",linewidth = 2, color = "blue")
-p_mse = plot!((0:num_thin)*N,ULA_mse_run,label="ULA",linewidth = 2, color = "green")
+plot!((0:length(ZZS_mse_run)-1)*N,ZZScts_mse_run,label="ZZS",linewidth = 2, 
+        line=:dash,color = "blue")
+p_mse = plot!((0:length(ZZS_mse_run)-1)*N,ULA_mse_run,label="ULA",linewidth = 2, color = "green")
 display(p_mse)
 savefig(p_mse, string(respath,"/mse_tv_",name,"_blur_", blur_length,".pdf"))
 

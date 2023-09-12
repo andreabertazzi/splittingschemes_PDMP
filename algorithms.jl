@@ -1,105 +1,14 @@
 include("helper_split.jl")
 include("moves_samplers.jl")
 
-
-function UKLA(∇U::Function,
-    δ::Float64,
-    N::Integer,
-    K::Integer,
-    η::Float64,
-    x_init::Vector{Float64},
-    v_init::Vector{Float64};
-    N_store::Integer=N)
-
-    # chain = skeleton[]
-    #push!(chain, skeleton(x_init, v_init, 0, x_init))
-    # push!(chain, skeleton(x_init, v_init, 0))
-    chain = Vector{skeleton}(undef, (N_store+1))
-    chain[1] = skeleton(x_init, v_init, 0)
-    x = x_init
-    v = v_init
-    dim = size(x)
-    #   M = x_init
-    gradU = ∇U(x)
-    l = 2
-    for n = 1:N
-        v = η * v + sqrt(1 - η^2) * randn(dim)
-        for k = 1:K
-            v = v - δ * gradU / 2
-            x = x + δ * v
-            gradU = ∇U(x)
-            v = v - δ * gradU / 2
-        end
-        v = η * v + sqrt(1 - η^2) * randn(dim)
-        #      M=M+(x-M)/n
-        if mod(n,round(N/N_store))==0
-            chain[l] = skeleton(copy(x), copy(v), n * δ)
-            l += 1
-            # push!(chain, skeleton(copy(x), copy(v), n * δ))
-            print("Simulation progress for UKLA: ", round(n/N*100), "% \r")
-        end
-        #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
-    end
-    chain
-end
-
-function HMC(∇U::Function,
-    U::Function,
-    δ::Float64,
-    N::Integer,
-    K::Integer,
-    η::Float64,
-    x_init::Vector{Float64},
-    v_init::Vector{Float64};
-    N_store::Integer=N)
-    chain = skeleton[]
-    #push!(chain, skeleton(x_init, v_init, 0, x_init))
-    push!(chain, skeleton(x_init, v_init, 0))
-    x = x_init
-    x_prop = x
-    gradU = ∇U(x_prop)
-    v = v_init
-    v_prop = v
-    num_rej=0
-    #    M = x_init
-    for n = 1:N
-        x_prop=x
-        v_prop = η * v + sqrt(1 - η^2) * randn(size(x))
-        for k = 1:K
-            v_prop = v_prop - δ * gradU / 2
-            x_prop = x_prop + δ * v_prop
-            gradU = ∇U(x_prop)
-            v_prop = v_prop - δ * gradU / 2
-        end
-        v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
-        #       M = M + (x_prop - M) / n
-        α = min(1, exp(-U(x_prop)+ U(x) - norm(v_prop)^2/2  + norm(v)^2/2))
-        acc_rej = rand(Bernoulli(α), 1)[1]
-        if acc_rej
-            x = x_prop
-            v = v_prop
-        else
-            num_rej+=1
-        end
-        #x=x+acc_rej*(x_prop-x)
-        if mod(n,round(N/N_store))==0
-            push!(chain, skeleton(copy(x), copy(v), n * δ))
-        end
-    end
-    print("Proportion of rejected steps is ", num_rej/N)
-    return chain
-end
-
 function ULA_sim(∇U::Function,
                         δ::Float64,
                         N::Integer,
-                        x_init::Vector{Float64},
+                        x_init::Array{Float64},
                         )
     x = x_init;
-    M=zeros(size(x));
-    for n = 1:N
+    for _ = 1:N
         x=x - gradU(x)*δ + sqrt(2*δ)*randn(size(x));
-        #M=M+(x-M)/n;
     end
     return x#(x,M)
 end
@@ -242,11 +151,11 @@ function splitting_zzs_DBD(
                          ∇U::Function,
                          δ::Float64,
                          N::Integer,
-                         x_init::Vector{Float64},
-                         v_init::Vector{Int64})
+                         x_init::Array,
+                         v_init::Array)
 
     chain = skeleton[]
-    push!(chain, skeleton(x_init, v_init, 0))
+    push!(chain, skeleton(x_init, v_init, 0, [],[]))
     x = copy(x_init)
     v = copy(v_init)
     for n = 1 : N
@@ -256,7 +165,11 @@ function splitting_zzs_DBD(
         flip_given_rate!(v, switch_rate_old, δ) #define this function
         switch_rate_new = max.(0,-v.*grad_x)
         x = x + v * δ/2
-        push!(chain, skeleton(copy(x), copy(v), n * δ))
+        Mnext = ((l - 1) * M) / l + X_store / l
+        global S = S + (X_store - Mnext) .* (X_store - M)
+        global M = Mnext
+        global l += 1
+        push!(chain, skeleton(copy(x), copy(v), n * δ,[],[]))
     end
 
     chain
@@ -268,13 +181,13 @@ function splitting_bps_RDBDR_gauss(
                          ∇U::Function,
                          δ::Float64,
                          N::Integer,
-                         x_init::Vector{Float64},
-                         v_init::AbstractVector;
+                         x_init::Array{Float64},
+                         v_init::AbstractArray;
                          unit_sphere::Bool = false,
                          want_plot::Bool = false)
 
     chain = skeleton[]
-    push!(chain, skeleton(x_init, v_init, 0))
+    push!(chain, skeleton(x_init, v_init, 0,[],[]))
     x = copy(x_init)
     v = copy(v_init)
     for n = 1 : N
@@ -289,7 +202,7 @@ function splitting_bps_RDBDR_gauss(
         switch_rate_new = max(0,-dot(v,grad_x))
         x = x + v * δ/2
         (x,v) = refreshment_part_bps(x,v,δ/2; unit_sphere = unit_sphere)
-        push!(chain, skeleton(copy(x), copy(v), n * δ))
+        push!(chain, skeleton(copy(x), copy(v), n * δ,[],[]))
     end
     if want_plot
         # iter = Integer(round(200/δ))
@@ -390,74 +303,74 @@ function splitting_bps_B_DR_B(∇U::Function,δ::Float64,N::Int64,x_init::Vector
     splitting_ABA(jump_part_bps!,flow_and_refreshment_bps!,∇U,δ,N,x_init,v_init)
 end
 
-function euler_pdmp_FD(flow::Function,
-                    event_rates::Function,
-                    jump::Function,
-                    ∇U::Function,
-                    δ::Float64,
-                    N::Integer,
-                    x_init::Vector{Float64},
-                    v_init::AbstractVector)
-    # Fully Discrete Euler approximation
-    # Initial conditions required!
-    chain = skeleton[]
-    push!(chain, skeleton(x_init, v_init, 0))
-    x = copy(x_init)
-    v = copy(v_init)
-    for i = 1 : N
-        grad = ∇U(x)   # compute this as can re-use it. o.w. more than one grad computation per iteration :(
-        rates = event_rates(grad,v) # can be scalar or vector
-        t_event, i_event = event_times(rates)
-        (x,v) = flow(x,v,δ)
-        if t_event <= δ
-            (x,v) = jump(grad,x,v,i_event)
-        end
-        push!(chain, skeleton(copy(x), copy(v), n*δ))
-    end
-    chain
-end
+# function euler_pdmp_FD(flow::Function,
+#                     event_rates::Function,
+#                     jump::Function,
+#                     ∇U::Function,
+#                     δ::Float64,
+#                     N::Integer,
+#                     x_init::Vector{Float64},
+#                     v_init::AbstractVector)
+#     # Fully Discrete Euler approximation
+#     # Initial conditions required!
+#     chain = skeleton[]
+#     push!(chain, skeleton(x_init, v_init, 0))
+#     x = copy(x_init)
+#     v = copy(v_init)
+#     for i = 1 : N
+#         grad = ∇U(x)   # compute this as can re-use it. o.w. more than one grad computation per iteration :(
+#         rates = event_rates(grad,v) # can be scalar or vector
+#         t_event, i_event = event_times(rates)
+#         (x,v) = flow(x,v,δ)
+#         if t_event <= δ
+#             (x,v) = jump(grad,x,v,i_event)
+#         end
+#         push!(chain, skeleton(copy(x), copy(v), n*δ))
+#     end
+#     chain
+# end
 
-function euler_pdmp_PD(flow::Function,
-                    event_rates::Function,
-                    jump::Function,
-                    ∇U::Function,
-                    δ::Float64,
-                    N::Integer,
-                    x_init::Vector{Float64},
-                    v_init::AbstractVector)
-    # Partially Discrete Euler approximation
-    # Initial conditions required!
-    chain = skeleton[]
-    push!(chain, skeleton(x_init, v_init, 0))
-    x = copy(x_init)
-    v = copy(v_init)
-    for n = 1 : N
-        grad = ∇U(x)
-        rates = event_rates(grad,v) # can be scalar or vector
-        t_event, i_event = event_times(rates)
-        if t_event > δ
-            (x,v) = flow(x,v,δ)
-        else
-            (x,v) = flow(x,v,t_event)
-            (x,v) = jump(∇U,x,v,i_event)
-            (x,v) = flow(x,v,δ-t_event)
-        end
-        push!(chain, skeleton(copy(x), copy(v), n*δ))
-    end
-    chain
-end
+# function euler_pdmp_PD(flow::Function,
+#                     event_rates::Function,
+#                     jump::Function,
+#                     ∇U::Function,
+#                     δ::Float64,
+#                     N::Integer,
+#                     x_init::Vector{Float64},
+#                     v_init::AbstractVector)
+#     # Partially Discrete Euler approximation
+#     # Initial conditions required!
+#     chain = skeleton[]
+#     push!(chain, skeleton(x_init, v_init, 0))
+#     x = copy(x_init)
+#     v = copy(v_init)
+#     for n = 1 : N
+#         grad = ∇U(x)
+#         rates = event_rates(grad,v) # can be scalar or vector
+#         t_event, i_event = event_times(rates)
+#         if t_event > δ
+#             (x,v) = flow(x,v,δ)
+#         else
+#             (x,v) = flow(x,v,t_event)
+#             (x,v) = jump(∇U,x,v,i_event)
+#             (x,v) = flow(x,v,δ-t_event)
+#         end
+#         push!(chain, skeleton(copy(x), copy(v), n*δ))
+#     end
+#     chain
+# end
 
-function euler_zzs_FD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float64},v_init::Vector{Real})
-    euler_pdmp_FD(flow_zzs,event_rates_zzs,jump_zzs,∇U,δ,N,x_init,v_init)
-end
+# function euler_zzs_FD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float64},v_init::Vector{Real})
+#     euler_pdmp_FD(flow_zzs,event_rates_zzs,jump_zzs,∇U,δ,N,x_init,v_init)
+# end
 
-function euler_zzs_PD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float64},v_init::Vector{Int64})
-    euler_pdmp_PD(flow_zzs,event_rates_zzs,jump_zzs,∇U,δ,N,x_init,v_init)
-end
+# function euler_zzs_PD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float64},v_init::Vector{Int64})
+#     euler_pdmp_PD(flow_zzs,event_rates_zzs,jump_zzs,∇U,δ,N,x_init,v_init)
+# end
 
-function euler_bps_PD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float64},v_init::Vector{Float64})
-    euler_pdmp_PD(flow_bps,event_rates_bps,jump_bps,∇U,δ,N,x_init,v_init)
-end
+# function euler_bps_PD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float64},v_init::Vector{Float64})
+#     euler_pdmp_PD(flow_bps,event_rates_bps,jump_bps,∇U,δ,N,x_init,v_init)
+# end
 
 
 tolerance = 1e-7
@@ -554,99 +467,99 @@ end
 
 
 
-function ZigZag(∇E::Function, Q::Matrix{Float64}, T::Real, x_init::Vector{Float64} = Vector{Float64}(undef,0),
-  v_init::Vector{Int} = Vector{Int}(undef,0), excess_rate::Float64 = 0.0)
-    # ∂E(i,x) is the i-th partial derivative of the potential E, evaluated in x
-    # Q is a symmetric matrix with nonnegative entries such that |(∇^2 E(x))_{ij}| <= Q_{ij} for all x, i, j
-    # T is time horizon
-    ∂E(i,x) = ∇E(x)[i]
-    dim = size(Q)[1]
-    if (length(x_init) == 0 || length(v_init) == 0)
-        x_init = zeros(dim)
-        v_init = rand((-1,1), dim)
-    end
+# function ZigZag(∇E::Function, Q::Matrix{Float64}, T::Real, x_init::Vector{Float64} = Vector{Float64}(undef,0),
+#   v_init::Vector{Int} = Vector{Int}(undef,0), excess_rate::Float64 = 0.0)
+#     # ∂E(i,x) is the i-th partial derivative of the potential E, evaluated in x
+#     # Q is a symmetric matrix with nonnegative entries such that |(∇^2 E(x))_{ij}| <= Q_{ij} for all x, i, j
+#     # T is time horizon
+#     ∂E(i,x) = ∇E(x)[i]
+#     dim = size(Q)[1]
+#     if (length(x_init) == 0 || length(v_init) == 0)
+#         x_init = zeros(dim)
+#         v_init = rand((-1,1), dim)
+#     end
 
-    b = [norm(Q[:,i]) for i=1:dim];
-    b = sqrt(dim)*b;
+#     b = [norm(Q[:,i]) for i=1:dim];
+#     b = sqrt(dim)*b;
 
-    t = 0.0;
-    x = x_init; v = v_init;
-    updateSkeleton = false;
-    finished = false;
-    skel_chain = skeleton[]
-    push!(skel_chain,skeleton(x,v,t))
+#     t = 0.0;
+#     x = x_init; v = v_init;
+#     updateSkeleton = false;
+#     finished = false;
+#     skel_chain = skeleton[]
+#     push!(skel_chain,skeleton(x,v,t))
 
-    rejected_switches = 0;
-    accepted_switches = 0;
-    initial_gradient = [∂E(i,x) for i in 1:dim];
-    a = v .* initial_gradient
+#     rejected_switches = 0;
+#     accepted_switches = 0;
+#     initial_gradient = [∂E(i,x) for i in 1:dim];
+#     a = v .* initial_gradient
 
-    Δt_proposed_switches = switchingtime.(a,b)
-    if (excess_rate == 0.0)
-        Δt_excess = Inf
-    else
-        Δt_excess = -log(rand())/(dim*excess_rate)
-    end
+#     Δt_proposed_switches = switchingtime.(a,b)
+#     if (excess_rate == 0.0)
+#         Δt_excess = Inf
+#     else
+#         Δt_excess = -log(rand())/(dim*excess_rate)
+#     end
 
-    while (!finished)
-        i = argmin(Δt_proposed_switches) # O(d)
-        Δt_switch_proposed = Δt_proposed_switches[i]
-        Δt = min(Δt_switch_proposed,Δt_excess);
-        if t + Δt > T
-            Δt = T - t
-            finished = true
-            updateSkeleton = true
-        end
-        x = x + v * Δt; # O(d)
-        t = t + Δt;
-        a = a + b * Δt; # O(d)
+#     while (!finished)
+#         i = argmin(Δt_proposed_switches) # O(d)
+#         Δt_switch_proposed = Δt_proposed_switches[i]
+#         Δt = min(Δt_switch_proposed,Δt_excess);
+#         if t + Δt > T
+#             Δt = T - t
+#             finished = true
+#             updateSkeleton = true
+#         end
+#         x = x + v * Δt; # O(d)
+#         t = t + Δt;
+#         a = a + b * Δt; # O(d)
 
-        if (!finished && Δt_switch_proposed < Δt_excess)
-            switch_rate = v[i] * ∂E(i,x)
-            proposedSwitchIntensity = a[i]
-            if proposedSwitchIntensity < switch_rate
-                println("ERROR: Switching rate exceeds bound.")
-                println(" simulated rate: ", proposedSwitchIntensity)
-                println(" actual switching rate: ", switch_rate)
-                error("Switching rate exceeds bound.")
-            end
-            if rand() * proposedSwitchIntensity <= switch_rate
-                # switch i-th component
-                v[i] = -v[i]
-                a[i] = -switch_rate
-                updateSkeleton = true
-                accepted_switches += 1
-            else
-                a[i] = switch_rate
-                updateSkeleton = false
-                rejected_switches += 1
-            end
-            # update refreshment time and switching time bound
-            Δt_excess = Δt_excess - Δt_switch_proposed
-            Δt_proposed_switches = Δt_proposed_switches .- Δt_switch_proposed
-            Δt_proposed_switches[i] = switchingtime(a[i],b[i])
-        elseif !finished
-            # so we switch due to excess switching rate
-            updateSkeleton = true
-            i = rand(1:dim)
-            v[i] = -v[i]
-            a[i] = v[i] * ∂E(i,x)
+#         if (!finished && Δt_switch_proposed < Δt_excess)
+#             switch_rate = v[i] * ∂E(i,x)
+#             proposedSwitchIntensity = a[i]
+#             if proposedSwitchIntensity < switch_rate
+#                 println("ERROR: Switching rate exceeds bound.")
+#                 println(" simulated rate: ", proposedSwitchIntensity)
+#                 println(" actual switching rate: ", switch_rate)
+#                 error("Switching rate exceeds bound.")
+#             end
+#             if rand() * proposedSwitchIntensity <= switch_rate
+#                 # switch i-th component
+#                 v[i] = -v[i]
+#                 a[i] = -switch_rate
+#                 updateSkeleton = true
+#                 accepted_switches += 1
+#             else
+#                 a[i] = switch_rate
+#                 updateSkeleton = false
+#                 rejected_switches += 1
+#             end
+#             # update refreshment time and switching time bound
+#             Δt_excess = Δt_excess - Δt_switch_proposed
+#             Δt_proposed_switches = Δt_proposed_switches .- Δt_switch_proposed
+#             Δt_proposed_switches[i] = switchingtime(a[i],b[i])
+#         elseif !finished
+#             # so we switch due to excess switching rate
+#             updateSkeleton = true
+#             i = rand(1:dim)
+#             v[i] = -v[i]
+#             a[i] = v[i] * ∂E(i,x)
 
-            # update upcoming event times
-            Δt_proposed_switches = Δt_proposed_switches .- Δt_excess
-            Δt_excess = -log(rand())/(dim*excess_rate);
-        end
+#             # update upcoming event times
+#             Δt_proposed_switches = Δt_proposed_switches .- Δt_excess
+#             Δt_excess = -log(rand())/(dim*excess_rate);
+#         end
 
-        if updateSkeleton
-            push!(skel_chain,skeleton(x,v,t))
-            updateSkeleton = false
-        end
+#         if updateSkeleton
+#             push!(skel_chain,skeleton(x,v,t))
+#             updateSkeleton = false
+#         end
 
-    end
+#     end
 
-    return skel_chain
+#     return skel_chain
 
-end
+# end
 
 function draw_event_times_lipschitzgrad(x::Vector{Float64},v::Vector{Int64},grad_pot::Function,L::Float64)
     dim = length(x)
@@ -658,29 +571,36 @@ function draw_event_times_lipschitzgrad(x::Vector{Float64},v::Vector{Int64},grad
     (proposed_switches,final_rates)
 end
 
-function give_coeffs_events_lipschitzgrad(x::Vector{Float64},v::Vector{Int64},grad_pot::Function,L::Float64)
+function give_coeffs_events_lipschitzgrad(x::Array,v::Array,grad_pot::Function,L::Float64)
     dim = length(x)
     b = L * sqrt(dim) 
     a = max.(0,v.*grad_pot(x))
     (a,b)
 end
 
-function ZigZag(∇E::Function, get_coeffs::Function, nr_proposals::Integer, dim::Integer, x_init::Vector{Float64} = Vector{Float64}(undef,0),
-    v_init::Vector{Int} = Vector{Int}(undef,0), excess_rate::Float64 = 0.0)
+function ZigZag(∇E::Function, get_coeffs::Function, nr_proposals::Integer, dim::Integer, M_init::Array, S_init::Array, x_init::Array,
+    v_init::Array=Array{Int}(undef, 0), excess_rate::Float64=0.0)
 
       ∂E(i,x) = ∇E(x)[i]
-      if (length(x_init) == 0 || length(v_init) == 0)
-          x_init = randn(dim)
-          v_init = rand((-1,1), dim)
+      if (length(v_init) == 0)
+          v_init = rand((-1,1), size(x))
       end
   
+    if (length(M_init) == 0)
+        M_init = x_init
+    end
+
+    if (length(S_init) == 0)
+        S_init = zeros(size(x))
+    end
+
       t = 0.0;
       n_grad_evals = 0;
-      x = x_init; v = v_init;
+      x = x_init; v = v_init; M=M_init; S=S_init;
       updateSkeleton = false;
       finished = false;
       skel_chain = skeleton[]
-      push!(skel_chain,skeleton(x,v,t))
+      push!(skel_chain,skeleton(x,v,t,M,S))
   
       rejected_switches = 0;
       accepted_switches = 0;
@@ -697,12 +617,15 @@ function ZigZag(∇E::Function, get_coeffs::Function, nr_proposals::Integer, dim
       end
   
       while (!finished)
-          n_grad_evals += 1
-          i = argmin(Δt_proposed_switches) # O(d)
-          Δt_switch_proposed = Δt_proposed_switches[i]
-          Δt = min(Δt_switch_proposed,Δt_excess);
-          x = x + v * Δt; # O(d)
-          t = t + Δt;
+            n_grad_evals += 1
+            i = argmin(Δt_proposed_switches) # O(d)
+            Δt_switch_proposed = Δt_proposed_switches[i]
+            Δt = min(Δt_switch_proposed,Δt_excess);
+            x = x + v * Δt; # O(d)
+            Mnext = M * t / (t + Δt) + (x * Δt + Δt^2*v/2) / (t + Δt);
+            S = S + x .^ 2 * Δt + Δt^2 * x .* v + Δt^3 * v .^ 2 / 3 - (t + Δt)*Mnext.^2+t*M.^2;
+            M=Mnext;
+            t = t + Δt;
         #   a = a .+ b * Δt; # O(d)
           
           if (Δt_switch_proposed < Δt_excess)
@@ -743,11 +666,12 @@ function ZigZag(∇E::Function, get_coeffs::Function, nr_proposals::Integer, dim
 
           if n_grad_evals >= nr_proposals
             finished = true
-            updateSkeleton = true
+            # updateSkeleton = true
           end
 
           if updateSkeleton
-              push!(skel_chain,skeleton(x,v,t))
+
+              push!(skel_chain,skeleton(x,v,t,M,S))
               updateSkeleton = false
           end
   

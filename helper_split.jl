@@ -2,58 +2,32 @@ using Statistics, LinearAlgebra, Compat, Plots, LaTeXStrings, StatsBase, StatsPl
 using BenchmarkTools, Optim
 
 struct skeleton
-  position::Array{Float64,1}
-  velocity::Array{Float64,1}
+  position::Array
+  velocity::Array
   time::Float64
+  mean::Array
+  unweighted_var::Array
 end
 
-function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false, observable::Function=identity)
+function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false)
   if i_end == 0
     i_end = length(skele)
   end
   n_samples = i_end - i_start + 1
-  dim = size(observable(skele[1].position), 1)
+  dim = size(skele[1].position,1)
   if want_array
-    position = Array{Float64,2}(undef, dim, n_samples)
+    position = Array{Float64,2}(undef,dim,n_samples)
     for i = i_start:i_end
-      position[:, i] .= observable(skele[i].position)
+      position[:,i] = skele[i].position
     end
   else
-    position = Vector{Vector{Float64}}(undef, 0)
+    position = Vector{Vector{Float64}}(undef,0)
     for i = i_start:i_end
-      push!(position, observable(skele[i].position))
+      push!(position,skele[i].position)
     end
   end
   return position
 end
-
-function getTimes(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false)
-  if i_end == 0
-    i_end = length(skele)
-  end
-  n_samples = i_end - i_start + 1
-  times = Array{Float64,1}(undef, n_samples)
-    for i = i_start:i_end
-      times[i] =skele[i].time
-    end
-  return times
-end
-
-function running_mean(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, observable::Function=identity)
-  if i_end == 0
-    i_end = length(skele)
-  end
-  n_samples = i_end - i_start + 1
-  dim = size(observable(skele[1].position), 1)
-  run_av = Array{Float64,2}(undef, dim, n_samples)
-  run_av[1]= observable(skele[i_start].position)
-    for i = i_start+1:i_end
-      position= observable(skele[i].position)
-      run_av[i]=run_av[i-1]+(position-run_av[i-1])/i
-    end
-  return run_av
-end
-
 
 function draw_exponential_time(λ::Real)
   if λ <= zero(λ)  # zero of same type as λ
@@ -72,7 +46,7 @@ function flip_v(vel::Int64, δ::Float64, λ::Real)
     vel
 end
 
-function flip!(vel::Vector, i::Integer)
+function flip!(vel::Array, i::Integer)
   temp = vel[i]
   vel[i] = -temp
 end
@@ -169,20 +143,15 @@ end
 
 
 function estimate_mean_cts(skele::Vector{skeleton})
+    if length(skele) == 1
+      return skele[1].position
+    else
       mean_est = 0
       for i = 1 : (length(skele)-1)
         mean_est = mean_est .+ skele[i].position .* (skele[i+1].time - skele[i].time) .+ 0.5 * skele[i].velocity .* (skele[i+1].time^2 - skele[i].time^2)
       end
-    mean_est / skele[end].time
-end
-
-function estimate_var_cts(skele::Vector{skeleton}, mean_est::Vector{Float64})
-    var_est = 0
-    for i = 1 : (length(skele)-1)
-      var_est = var_est .+ (skele[i].position.^2) .* (skele[i+1].time - skele[i].time) .+ (1/3) * (skele[i+1].time^3 - skele[i].time^3) + skele[i].position .* skele[i].velocity *  (skele[i+1].time^2 - skele[i].time^2)
     end
-    var_est = var_est / skele[end].time - mean_est.^2
-    var_est
+    mean_est / skele[end].time
 end
 
 
@@ -337,7 +306,7 @@ function compute_radius(covar_matrix::Function, corr::Vector{Float64}, dim::Vect
 end
 
 
-function compute_mse_given_mean(running_mean::Array, f0_vec::Vector, num_thin::Integer)
+function compute_mse_given_mean(running_mean::Array, f0_vec::Array, num_thin::Integer)
   # num_thin = size(running_mean,2)
   mse_run = zeros(num_thin+1)
   mse_run[1] =mse(running_mean[:,1], f0_vec)
@@ -345,8 +314,4 @@ function compute_mse_given_mean(running_mean::Array, f0_vec::Vector, num_thin::I
       mse_run[thin_it+1]=mse(running_mean[:,thin_it+1], f0_vec)
   end
   mse_run
-end
-
-function pos_part(x::Real)
-  max(0,x)
 end

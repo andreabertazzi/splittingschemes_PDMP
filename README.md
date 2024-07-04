@@ -1,7 +1,5 @@
 # splittingschemes_PDMP
-Codes for the paper "Splitting schemes for second order approximations of piecewise-deterministic Markov processes" (2023) by Bertazzi, Dobson, Monmarché.
-
-For the experiments for Metropolised algorithms, run exp_metropolised_error.jl and exp_metropolised_rejections.jl 
+Codes for the paper "Piecewise deterministic sampling with splitting schemes" (2023) by Bertazzi, Dobson, Monmarché.
 
 For the Bayesian image deblurring, run TVdeblur,jl 
 

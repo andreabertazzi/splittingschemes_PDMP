@@ -308,32 +308,33 @@ end
 
 
 function run_by_refreshmentrates(
-        ∇U::Function,
-        samplers::Vector{Function},
-        initial_state::Function,
-        dim::Int64,
-        δ::Float64,
-        N::Int64,
-        refresh_rates::AbstractVector,
-        n_exp::Int64,
-        test_funcs::Vector{Function},
-        truth::Vector{Float64}
-        )
+    ∇U::Function,
+    samplers::Vector{Function},
+    initial_state::Function,
+    dim::Int64,
+    δ::Float64,
+    N::Int64,
+    refresh_rates::AbstractVector,
+    n_exp::Int64,
+    test_funcs::Function,
+    truth::Float64
+    )
 
     n_samplers = length(samplers)
     n_rr       = length(refresh_rates)
-    n_testfuncs = length(test_funcs)
-    errors_samplers = Array{Float64}(undef, n_samplers, n_exp, n_rr, n_testfuncs)
+    errors_samplers = Array{Float64}(undef, n_samplers, n_exp, n_rr)
 
     println("")
-    for k = 1 : n_rr
+    for (k,rr) in enumerate(refresh_rates)
         println("Starting with value of refreshment rate nr $k out of $n_rr")
-        global refresh_rate = refresh_rates[k]  # refresh_rate is the name used in the various functions
-        for j = 1 : n_exp
-            (x_init,v_init) = initial_state(dim)
+        global refresh_rate = rr  # refresh_rate is the name used in the various functions
+        Threads.@threads for j = 1 : n_exp
             for i = 1:n_samplers
-                chain = samplers[i](∇U,δ,N,x_init,v_init)
-                errors_samplers[i,j,k,:] = compute_errors(chain, test_funcs, truth)
+                (x_init,v_init) = initial_state(dim)
+                # chain = samplers[i](∇U,δ,N,x_init,v_init)
+                # errors_samplers[i,j,k] = compute_squarederror(chain, test_funcs, truth)
+                estimate = samplers[i](∇U,δ,N,x_init,v_init,test_funcs)
+                errors_samplers[i,j,k] = (estimate - truth)^2
             end
         end
     end
@@ -341,31 +342,33 @@ function run_by_refreshmentrates(
 end
 
 function run_by_refreshmentrates(
-        ∇U::Function,
-        samplers::Vector{Function},
-        initial_state::Function,
-        dim::Int64,
-        δ::Float64,
-        N::Int64,
-        refresh_rates::AbstractVector,
-        n_exp::Int64,
-        test_funcs::Function,
-        truth::Float64
-        )
+    ∇U::Function,
+    samplers::Vector{Function},
+    initial_state::Function,
+    dim::Int64,
+    δ::Float64,
+    N::Int64,
+    refresh_rates::AbstractVector,
+    n_exp::Int64,
+    test_funcs::Function,
+    truth::Float64
+    )
 
     n_samplers = length(samplers)
     n_rr       = length(refresh_rates)
     errors_samplers = Array{Float64}(undef, n_samplers, n_exp, n_rr)
 
     println("")
-    for k = 1 : n_rr
+    for (k,rr) in enumerate(refresh_rates)
         println("Starting with value of refreshment rate nr $k out of $n_rr")
-        global refresh_rate = refresh_rates[k]  # refresh_rate is the name used in the various functions
-        for j = 1 : n_exp
-            (x_init,v_init) = initial_state(dim)
+        global refresh_rate = rr  # refresh_rate is the name used in the various functions
+        Threads.@threads for j = 1 : n_exp
             for i = 1:n_samplers
-                chain = samplers[i](∇U,δ,N,x_init,v_init)
-                errors_samplers[i,j,k] = compute_errors(chain, test_funcs, truth)
+                (x_init,v_init) = initial_state(dim)
+                # chain = samplers[i](∇U,δ,N,x_init,v_init)
+                # errors_samplers[i,j,k] = compute_squarederror(chain, test_funcs, truth)
+                estimate = samplers[i](∇U,δ,N,x_init,v_init,test_funcs)
+                errors_samplers[i,j,k] = (estimate - truth)^2
             end
         end
     end

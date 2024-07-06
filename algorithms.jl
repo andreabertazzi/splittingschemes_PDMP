@@ -1,109 +1,6 @@
 include("helper_split.jl")
 include("moves_samplers.jl")
 
-
-function UKLA(∇U::Function,
-    δ::Float64,
-    N::Integer,
-    K::Integer,
-    η::Float64,
-    x_init::Vector{Float64},
-    v_init::Vector{Float64};
-    N_store::Integer=N)
-
-    # chain = skeleton[]
-    #push!(chain, skeleton(x_init, v_init, 0, x_init))
-    # push!(chain, skeleton(x_init, v_init, 0))
-    chain = Vector{skeleton}(undef, (N_store+1))
-    chain[1] = skeleton(x_init, v_init, 0)
-    x = x_init
-    v = v_init
-    dim = size(x)
-    #   M = x_init
-    gradU = ∇U(x)
-    l = 2
-    for n = 1:N
-        v = η * v + sqrt(1 - η^2) * randn(dim)
-        for k = 1:K
-            v = v - δ * gradU / 2
-            x = x + δ * v
-            gradU = ∇U(x)
-            v = v - δ * gradU / 2
-        end
-        v = η * v + sqrt(1 - η^2) * randn(dim)
-        #      M=M+(x-M)/n
-        if mod(n,round(N/N_store))==0
-            chain[l] = skeleton(copy(x), copy(v), n * δ)
-            l += 1
-            # push!(chain, skeleton(copy(x), copy(v), n * δ))
-            print("Simulation progress for UKLA: ", round(n/N*100), "% \r")
-        end
-        #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
-    end
-    chain
-end
-
-function HMC(∇U::Function,
-    U::Function,
-    δ::Float64,
-    N::Integer,
-    K::Integer,
-    η::Float64,
-    x_init::Vector{Float64},
-    v_init::Vector{Float64};
-    N_store::Integer=N)
-    chain = skeleton[]
-    #push!(chain, skeleton(x_init, v_init, 0, x_init))
-    push!(chain, skeleton(x_init, v_init, 0))
-    x = x_init
-    x_prop = x
-    gradU = ∇U(x_prop)
-    v = v_init
-    v_prop = v
-    num_rej=0
-    #    M = x_init
-    for n = 1:N
-        x_prop=x
-        v_prop = η * v + sqrt(1 - η^2) * randn(size(x))
-        for k = 1:K
-            v_prop = v_prop - δ * gradU / 2
-            x_prop = x_prop + δ * v_prop
-            gradU = ∇U(x_prop)
-            v_prop = v_prop - δ * gradU / 2
-        end
-        v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
-        #       M = M + (x_prop - M) / n
-        α = min(1, exp(-U(x_prop)+ U(x) - norm(v_prop)^2/2  + norm(v)^2/2))
-        acc_rej = rand(Bernoulli(α), 1)[1]
-        if acc_rej
-            x = x_prop
-            v = v_prop
-        else
-            num_rej+=1
-        end
-        #x=x+acc_rej*(x_prop-x)
-        if mod(n,round(N/N_store))==0
-            push!(chain, skeleton(copy(x), copy(v), n * δ))
-        end
-    end
-    print("Proportion of rejected steps is ", num_rej/N)
-    return chain
-end
-
-function ULA_sim(∇U::Function,
-                        δ::Float64,
-                        N::Integer,
-                        x_init::Vector{Float64},
-                        )
-    x = x_init;
-    M=zeros(size(x));
-    for n = 1:N
-        x=x - gradU(x)*δ + sqrt(2*δ)*randn(size(x));
-        #M=M+(x-M)/n;
-    end
-    return x#(x,M)
-end
-
 function splitting_ABA(part_A!::Function,
                         part_B!::Function,
                         ∇U::Function,
@@ -332,6 +229,32 @@ function splitting_ABCBA(part_A!::Function,
 
 end
 
+function splitting_ABCBA_fun(part_A!::Function,
+    part_B!::Function,
+    part_C!::Function,
+    ∇U::Function,
+    δ::Float64,
+    N::Integer,
+    x_init::Vector{Float64},
+    v_init::AbstractVector,
+    stat_fun::Function)
+
+    estimate = 0
+    x = copy(x_init)
+    v = copy(v_init)
+    for n = 1 : N
+        part_A!(∇U,x,v,δ/2)
+        part_B!(∇U,x,v,δ/2)
+        part_C!(∇U,x,v,δ)
+        part_B!(∇U,x,v,δ/2)
+        part_A!(∇U,x,v,δ/2)
+        estimate += stat_fun(x) / N
+    end
+
+    estimate
+
+end
+
 # function splitting_zzs_DBD(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::AbstractVector)
 #     splitting_ABA(flow_zzs!,jump_part_zzs!,∇U,δ,N,x_init,v_init)
 # end
@@ -389,6 +312,56 @@ end
 function splitting_bps_B_DR_B(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64})
     splitting_ABA(jump_part_bps!,flow_and_refreshment_bps!,∇U,δ,N,x_init,v_init)
 end
+
+
+## Splitting schemes that estimate an expected statistic along the way, without storing the chain
+function splitting_bps_RDBDR_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(refreshment_part_bps!,flow_bps!,reflection_part_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_RBDBR_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(refreshment_part_bps!,reflection_part_bps!,flow_bps!,∇U,δ,N,x_init,v_init,stat_fun)
+end
+
+
+function splitting_bps_DRBRD_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(flow_bps!,refreshment_part_bps!,reflection_part_bps!,∇U,δ,N,x_init,v_init,stat_fun)
+end
+
+function splitting_bps_DBRBD_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(flow_bps!,reflection_part_bps!,refreshment_part_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_BDRDB_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(reflection_part_bps!,flow_bps!,refreshment_part_bps!,∇U,δ,N,x_init,v_init,stat_fun)
+end
+
+function splitting_bps_BRDRB_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(reflection_part_bps!,refreshment_part_bps!,flow_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_BDRDB_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABCBA_fun(reflection_part_bps!,flow_bps!,refreshment_part_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_DBD_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABA_fun(flow_bps!,jump_part_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_BDB_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABA_fun(jump_part_bps!,flow_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_DR_B_DR_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABA_fun(flow_and_refreshment_bps!,jump_part_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+function splitting_bps_B_DR_B_fun(∇U::Function,δ::Float64,N::Int64,x_init::Vector{Float64},v_init::Vector{Float64}, stat_fun::Function)
+    splitting_ABA_fun(jump_part_bps!,flow_and_refreshment_bps!,∇U,δ,N,x_init,v_init, stat_fun)
+end
+
+
+## Euler schemes
 
 function euler_pdmp_FD(flow::Function,
                     event_rates::Function,
@@ -460,6 +433,8 @@ function euler_bps_PD(∇U::Function,δ::Float64,N::Integer,x_init::Vector{Float
 end
 
 
+
+## Continuous time PDMPs
 tolerance = 1e-7
 
 function BPS(∇E::Function, Q::Matrix{Float64}, T::Real, x_init::Vector{Float64} = Vector{Float64}(undef,0), v_init::Vector{Float64} = Vector{Float64}(undef,0), refresh_rate::Float64 = 1.0)
@@ -760,3 +735,110 @@ function ZigZag(∇E::Function, get_coeffs::Function, nr_proposals::Integer, dim
       return skel_chain
   
   end
+
+
+
+
+  ## Competitors ##
+
+  function UKLA(∇U::Function,
+    δ::Float64,
+    N::Integer,
+    K::Integer,
+    η::Float64,
+    x_init::Vector{Float64},
+    v_init::Vector{Float64};
+    N_store::Integer=N)
+
+    # chain = skeleton[]
+    #push!(chain, skeleton(x_init, v_init, 0, x_init))
+    # push!(chain, skeleton(x_init, v_init, 0))
+    chain = Vector{skeleton}(undef, (N_store+1))
+    chain[1] = skeleton(x_init, v_init, 0)
+    x = x_init
+    v = v_init
+    dim = size(x)
+    #   M = x_init
+    gradU = ∇U(x)
+    l = 2
+    for n = 1:N
+        v = η * v + sqrt(1 - η^2) * randn(dim)
+        for k = 1:K
+            v = v - δ * gradU / 2
+            x = x + δ * v
+            gradU = ∇U(x)
+            v = v - δ * gradU / 2
+        end
+        v = η * v + sqrt(1 - η^2) * randn(dim)
+        #      M=M+(x-M)/n
+        if mod(n,round(N/N_store))==0
+            chain[l] = skeleton(copy(x), copy(v), n * δ)
+            l += 1
+            # push!(chain, skeleton(copy(x), copy(v), n * δ))
+            print("Simulation progress for UKLA: ", round(n/N*100), "% \r")
+        end
+        #        push!(chain, skeleton(copy(x), copy(v), n * δ, copy(M)))
+    end
+    chain
+end
+
+function HMC(∇U::Function,
+    U::Function,
+    δ::Float64,
+    N::Integer,
+    K::Integer,
+    η::Float64,
+    x_init::Vector{Float64},
+    v_init::Vector{Float64};
+    N_store::Integer=N)
+    chain = skeleton[]
+    #push!(chain, skeleton(x_init, v_init, 0, x_init))
+    push!(chain, skeleton(x_init, v_init, 0))
+    x = x_init
+    x_prop = x
+    gradU = ∇U(x_prop)
+    v = v_init
+    v_prop = v
+    num_rej=0
+    #    M = x_init
+    for n = 1:N
+        x_prop=x
+        v_prop = η * v + sqrt(1 - η^2) * randn(size(x))
+        for k = 1:K
+            v_prop = v_prop - δ * gradU / 2
+            x_prop = x_prop + δ * v_prop
+            gradU = ∇U(x_prop)
+            v_prop = v_prop - δ * gradU / 2
+        end
+        v_prop = η * v_prop + sqrt(1 - η^2) * randn(size(x))
+        #       M = M + (x_prop - M) / n
+        α = min(1, exp(-U(x_prop)+ U(x) - norm(v_prop)^2/2  + norm(v)^2/2))
+        acc_rej = rand(Bernoulli(α), 1)[1]
+        if acc_rej
+            x = x_prop
+            v = v_prop
+        else
+            num_rej+=1
+        end
+        #x=x+acc_rej*(x_prop-x)
+        if mod(n,round(N/N_store))==0
+            push!(chain, skeleton(copy(x), copy(v), n * δ))
+        end
+    end
+    print("Proportion of rejected steps is ", num_rej/N)
+    return chain
+end
+
+function ULA_sim(∇U::Function,
+                        δ::Float64,
+                        N::Integer,
+                        x_init::Vector{Float64},
+                        )
+    x = x_init;
+    M=zeros(size(x));
+    for n = 1:N
+        x=x - gradU(x)*δ + sqrt(2*δ)*randn(size(x));
+        #M=M+(x-M)/n;
+    end
+    return x#(x,M)
+end

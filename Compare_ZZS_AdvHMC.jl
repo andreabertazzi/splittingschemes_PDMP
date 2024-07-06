@@ -6,7 +6,7 @@ include("moves_samplers.jl")
 include("algorithms.jl")
 include("functions_particles.jl")
 
-N = 100 # number of particles
+N = 10 # number of particles
 iter = 1 * 10^3 # number of iterations per thinned sample
 thin_iter = 3 * 10^4 # number of thinned samples want to get. If ==1 then no thinning.
 δ = 1e-2
@@ -130,8 +130,8 @@ end
 ## If want to load saved data
 # pos = load_object(string(respath,"/zzs_a_0.01_N_25_delta_0.01_thiniter_100000_iter_1000"));
 # samples = load_object(string(respath,"/hmc_a_0.01_N_25_samples80000"));
-runtime_ZZS = load_object(string(respath,"/zzs_runtime_a_1.0_N_100_delta_0.01_thiniter_30000_iter_1000"));
-runtime_advHMC = load_object(string(respath,"/hmc_runtime_a_1.0_N_100_samples100"));
+# runtime_ZZS = load_object(string(respath,"/zzs_runtime_a_1.0_N_100_delta_0.01_thiniter_30000_iter_1000"));
+# runtime_advHMC = load_object(string(respath,"/hmc_runtime_a_1.0_N_100_samples100"));
 # a = 0.01
 # N = 25
 

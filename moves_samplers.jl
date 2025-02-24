@@ -58,7 +58,7 @@ function draw_velocity_zzs(dim::Int64)
     rand((-1, 1), dim)
 end
 
-function flip_given_rate!(v::AbstractVector, λ::Vector{Float64}, s::Real)
+function flip_given_rate!(v::Vector{<:Real}, λ::Vector{Float64}, s::Real)
     event_time = draw_exponential_time.(λ)
     for i = 1:length(v)
         if event_time[i] <= s
@@ -115,6 +115,14 @@ function refreshment_part_bps(x::Vector{Float64}, v::Vector{Float64}, s::Real; u
     refresh_time = draw_exponential_time(refresh_rate)
     if refresh_time <= s
         v = draw_velocity_bps(length(v); unit_sphere = unit_sphere)
+    end
+    (x,v)
+end
+
+function refreshment_part_bps(x::Vector{Float64}, v::Vector{Float64}, s::Real, lambd::Real; u_sphere::Bool = true)
+    refresh_time = draw_exponential_time(lambd)
+    if refresh_time <= s
+        v = draw_velocity_bps(length(v); unit_sphere = u_sphere)
     end
     (x,v)
 end
@@ -187,7 +195,7 @@ function refresh_bps_gauss!(v::Vector{Float64}, d::Int64)
 end
 
 function reflect!(gradient::Vector{Float64}, v::Vector{Float64})
-    v[:] = v - 2 * (dot(gradient, v) / dot(gradient,gradient)) * gradient
+    v[:] -= 2 * (dot(gradient, v) / dot(gradient,gradient)) * gradient
 end
 
 function reflection_part_bps!(∇U::Function, x::Vector{Float64}, v::Vector{Float64}, s::Real)
@@ -205,6 +213,31 @@ function refreshment_part_bps!(x::Vector{Float64}, v::Vector{Float64}, s::Real; 
     end
 end
 
+function refreshment!(v::Vector{Float64}, s::Real, rate::Real; unit_sphere::Bool = false)
+
+    if draw_exponential_time(rate) <= s
+        if unit_sphere
+            v[:] = randn(length(v))
+            v[:] /= norm(v)
+        else 
+            v[:] = randn(length(v))
+        end
+    end
+    
+end
+
+function refreshment_gauss!(v::Vector{Float64}, s::Real, rate::Real, time_to_refresh::Real)
+
+    time_to_refresh -= s
+    if time_to_refresh <= 0
+        v[:] = randn(length(v))
+        time_to_refresh = -log(rand()) / rate
+        # time_to_refresh = draw_exponential_time(rate)
+    end
+    time_to_refresh
+    
+end
+
 function refreshment_part_bps!(∇U::Function, x::Vector{Float64}, v::Vector{Float64}, s::Real)
     refreshment_part_bps!(x, v, s)
 end
@@ -212,6 +245,18 @@ end
 function refreshment_part_bps_gauss!(∇U::Function, x::Vector{Float64}, v::Vector{Float64}, s::Real)
     refresh_time = draw_exponential_time(refresh_rate)
     if refresh_time <= s
+        refresh_bps_gauss!(v,length(v))
+    end
+end
+
+function refreshment_part_bps_gauss!(v::Vector{Float64}, s::Real)
+    if draw_exponential_time(refresh_rate) <= s
+        refresh_bps_gauss!(v,length(v))
+    end
+end
+
+function refreshment_part_bps_gauss!(v::Vector{Float64}, s::Real, lambd::Real)
+    if draw_exponential_time(lambd) <= s
         refresh_bps_gauss!(v,length(v))
     end
 end
@@ -258,6 +303,12 @@ function reflect_given_rate!(v::Vector{Float64}, λ::Real, grad_x::Vector{Float6
     end
 end
 
+## Rate functions
+
+function rate_bps(grad::Vector{<:Real}, v::Vector{<:Real})
+    max(0,dot(grad,v))
+end
+
 ## Miscellaneous
 
 function event_times(rates::Vector{Float64})
@@ -266,35 +317,3 @@ function event_times(rates::Vector{Float64})
     return (times[i],i)
 end
 
-function jump_part_particles!(rate1::Function, rate2::Function, ub2::Real, x::Vector{<:Real}, 
-                                v::Vector{<:Real}, δ::Real, N::Integer)
-
-for i = 1 : N
-    t = 0
-    time_1 = draw_exponential_time(rate1(x,v,i))
-    time_2 = draw_exponential_time(ub2)
-    while t < δ
-        if min(time_1,time_2) <= δ-t
-            if time_1 < time_2
-                t += time_1
-                flip!(v,i)
-                time_2 -= time_1
-                time_1 = Inf
-            else
-                t += time_2
-                J = rand(1:(N-1))
-                if rand() < rate2(x,v,i,J) / ub2 
-                    flip!(v,i)
-                    time_1 = draw_exponential_time(rate1(x,v,i))
-                else
-                    time_1 -= time_2
-                end
-                time_2 = draw_exponential_time(ub2)
-            end
-        else
-            t = δ+1
-        end
-    end
-end
-
-end

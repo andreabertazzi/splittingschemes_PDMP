@@ -8,10 +8,10 @@ p(x) = 1/(pi*(1+x^2))
 p(x, v) = 0.5 * p(x)
 
 # DBRBD
-# f0_DBRBD(λ) =  ( (λ / 4) * (pi/4 -1/pi) -1/16)
-# f_DBRBD(x,λ) = f0_DBRBD(λ) - λ/4 * (abs(atan(x))-abs(x)/(1+x^2)) - 1/12*((1-x^2)/((1+x^2)^2) -1)
-# f0_DBRBD(λ) =   (λ / 4) * (pi/4 -1/pi) +(1/48)
-# f_DBRBD(x,λ) = f0_DBRBD(λ) - λ/4 * (abs(atan(x))-abs(x)/(1+x^2)) - 1/12*(1-x^2)/((1+x^2)^2)
+f0_DBRBD(λ) =  ( (λ / 4) * (pi/4 -1/pi) -1/16)
+f_DBRBD(x,λ) = f0_DBRBD(λ) - λ/4 * (abs(atan(x))-abs(x)/(1+x^2)) - 1/12*((1-x^2)/((1+x^2)^2) -1)
+f0_DBRBD(λ) =   (λ / 4) * (pi/4 -1/pi) +(1/48)
+f_DBRBD(x,λ) = f0_DBRBD(λ) - λ/4 * (abs(atan(x))-abs(x)/(1+x^2)) - 1/12*(1-x^2)/((1+x^2)^2)
 # stepsize = 0.05
 # xs = [i*stepsize for i=-60:60]
 # plot(xs,f_DBRBD.(xs,1))
@@ -19,12 +19,12 @@ p(x, v) = 0.5 * p(x)
 # plot(xs,f_DBRBD.(xs,.2))
 
 # RDBDR
-# f_RDBDR(x) = 1/12 *(1/4 + (x^2-1)/((1+x^2)^2))
+f_RDBDR(x) = 1/12 *(1/4 + (x^2-1)/((1+x^2)^2))
 # quadgk(x -> (f_RDBDR(x)*p(x)), -Inf, Inf, rtol=1e-8)
 # plot(xs,f_RDBDR.(xs))
 
 # BDRDB
-# f_sum_BDRDB(x) = ((x^2-3)^2)/(48*(x^2+1)^2) + (x^4-54*x^2+9)/(48*(x^2+1)^2)
+f_sum_BDRDB(x) = ((x^2-3)^2)/(48*(x^2+1)^2) + (x^4-54*x^2+9)/(48*(x^2+1)^2)
 # quadgk(x -> (f_sum_BDRDB(x)*p(x)), -Inf, Inf, rtol=1e-8)
 # stepsize = 0.05
 # xs = [i*stepsize for i=-1000:1000]
@@ -32,11 +32,11 @@ p(x, v) = 0.5 * p(x)
 
 
 # DRBRD
-# term1_DRBRD(x,λ) = 0.5 * λ * ( pi/4 - abs(atan(x)) +abs(x)/(1+x^2) -1/pi)
-# term2_DRBRD(x,λ) = 1/12 *(1/4 + (x^2-1)/((1+x^2)^2))
-# term3_DRBRD(x,λ) = ((λ^2)/8) * (log(4/(1+x^2)))
-# f_DRBRD(x,λ) = term1_DRBRD(x,λ) + term2_DRBRD(x,λ) + term3_DRBRD(x,λ)
-# quadgk(x -> (f_DRBRD(x,0.5)*p(x)), -100000000000, 100000000000, rtol=1e-8)
+term1_DRBRD(x,λ) = 0.5 * λ * ( pi/4 - abs(atan(x)) +abs(x)/(1+x^2) -1/pi)
+term2_DRBRD(x,λ) = 1/12 *(1/4 + (x^2-1)/((1+x^2)^2))
+term3_DRBRD(x,λ) = ((λ^2)/8) * (log(4/(1+x^2)))
+f_DRBRD(x,λ) = term1_DRBRD(x,λ) + term2_DRBRD(x,λ) + term3_DRBRD(x,λ)
+quadgk(x -> (f_DRBRD(x,0.5)*p(x)), -100000000000, 100000000000, rtol=1e-8)
 
 # stepsize = 0.5
 # λs = [i*0.05 for i=0:60]
@@ -111,7 +111,7 @@ plot(λs,DBRBD,ylabel = "TV distance", xlabel = "Refreshment rate",
     linewidth=2,legend=:topleft,legendfontsize=10,
     linecolor=colours[1], label = "Splitting DBRBD",
     xticks=[0,0.5,1,1.5,2,2.5,3],
-    ylim = [0.0,0.24]
+    ylim = [-0.01,0.24]
     )
 plot!(λs,RDBDR,linewidth=2,linecolor=colours[2], label = "Splitting RDBDR",)
 plot!(λs,DRBRD,linewidth=2,linecolor=colours[3], label = "Splitting DRBRD",)

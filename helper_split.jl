@@ -7,60 +7,32 @@ struct skeleton
   time::Float64
 end
 
-function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false, observable::Function=identity)
+function getPosition(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false)
   if i_end == 0
     i_end = length(skele)
   end
   n_samples = i_end - i_start + 1
-  dim = size(observable(skele[1].position), 1)
+  dim = size(skele[1].position,1)
   if want_array
-    position = Array{Float64,2}(undef, dim, n_samples)
+    position = Array{Float64,2}(undef,dim,n_samples)
     for i = i_start:i_end
-      position[:, i] .= observable(skele[i].position)
+      position[:,i] = skele[i].position
     end
   else
-    position = Vector{Vector{Float64}}(undef, 0)
+    position = Vector{Vector{Float64}}(undef,0)
     for i = i_start:i_end
-      push!(position, observable(skele[i].position))
+      push!(position,skele[i].position)
     end
   end
   return position
 end
 
-function getTimes(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, want_array::Bool=false)
-  if i_end == 0
-    i_end = length(skele)
-  end
-  n_samples = i_end - i_start + 1
-  times = Array{Float64,1}(undef, n_samples)
-    for i = i_start:i_end
-      times[i] =skele[i].time
-    end
-  return times
-end
-
-function running_mean(skele::Array{skeleton,1}; i_start::Integer=1, i_end::Integer=0, observable::Function=identity)
-  if i_end == 0
-    i_end = length(skele)
-  end
-  n_samples = i_end - i_start + 1
-  dim = size(observable(skele[1].position), 1)
-  run_av = Array{Float64,2}(undef, dim, n_samples)
-  run_av[1]= observable(skele[i_start].position)
-    for i = i_start+1:i_end
-      position= observable(skele[i].position)
-      run_av[i]=run_av[i-1]+(position-run_av[i-1])/i
-    end
-  return run_av
-end
-
-
 function draw_exponential_time(λ::Real)
   if λ <= zero(λ)  # zero of same type as λ
-    return Inf
+    # return Inf
+    return 1e30
   else
-    U = rand()
-    return -log(U) / λ # don't use for couplings ;)
+    return -log(rand()) / λ # don't use for couplings ;)
   end
 end
 
@@ -106,7 +78,7 @@ function define_gradient_gaussian_correlation(dim::Int64, ρ::Real)
 end
 
 
-function switchingtime(a::Float64,b::Float64,u::Float64=rand())
+function switchingtime(a::Real, b::Real, u::Real=rand())
 # generate switching time for rate of the form max(0, a + b s)
   if (b > 0)
     if (a < 0)
@@ -124,8 +96,7 @@ function switchingtime(a::Float64,b::Float64,u::Float64=rand())
     if (a <= 0)
       return Inf;
     else # a > 0
-      y = -log(1-u); 
-      t1=-a/b;
+      y = -log(1-u); t1=-a/b;
       if (y >= a * t1 + b *t1^2/2)
         return Inf;
       else
@@ -147,7 +118,7 @@ function discretise(skel_chain::Vector{skeleton}, Δt::Float64, t_fin::Real)
   dim_temp = Int(round((t_fin-time)/Δt))
   d = length(skel_chain[1].position)
   temp = Array{Float64,2}(undef,d, dim_temp+1)
-  temp[:,1] = skel_chain[1].position #this must be at time 0.0 or n*t_adaps
+  temp[:,1] = skel_chain[1].position #this must be at time 0.0
   for k = 1:dim_temp
     time += Δt
     if i_skel==dim_skel || time <= skel_chain[i_skel+1].time
@@ -166,25 +137,6 @@ function discretise(skel_chain::Vector{skeleton}, Δt::Float64, t_fin::Real)
   end
   temp
 end
-
-
-function estimate_mean_cts(skele::Vector{skeleton})
-      mean_est = 0
-      for i = 1 : (length(skele)-1)
-        mean_est = mean_est .+ skele[i].position .* (skele[i+1].time - skele[i].time) .+ 0.5 * skele[i].velocity .* (skele[i+1].time^2 - skele[i].time^2)
-      end
-    mean_est / skele[end].time
-end
-
-function estimate_var_cts(skele::Vector{skeleton}, mean_est::Vector{Float64})
-    var_est = 0
-    for i = 1 : (length(skele)-1)
-      var_est = var_est .+ (skele[i].position.^2) .* (skele[i+1].time - skele[i].time) .+ (1/3) * (skele[i+1].time^3 - skele[i].time^3) + skele[i].position .* skele[i].velocity *  (skele[i+1].time^2 - skele[i].time^2)
-    end
-    var_est = var_est / skele[end].time - mean_est.^2
-    var_est
-end
-
 
 function estimate_inv_meas(positions::Vector{Float64}, bin_size::Float64, limits::Real; band_avg::Int64 = 3)
     nr_bins = Int64(abs(limits)/bin_size)  # actually half nr bins
@@ -337,16 +289,17 @@ function compute_radius(covar_matrix::Function, corr::Vector{Float64}, dim::Vect
 end
 
 
-function compute_mse_given_mean(running_mean::Array, f0_vec::Vector, num_thin::Integer)
-  # num_thin = size(running_mean,2)
-  mse_run = zeros(num_thin+1)
-  mse_run[1] =mse(running_mean[:,1], f0_vec)
-  for thin_it=1:num_thin
-      mse_run[thin_it+1]=mse(running_mean[:,thin_it+1], f0_vec)
-  end
-  mse_run
-end
 
-function pos_part(x::Real)
-  max(0,x)
+## for future work
+function simulate_and_thin(sampler::Function,param::Real, cond_init::Vector{<:Real}, iterations_per_batch::Integer, n_thinned::Integer)
+  z = cond_init
+  chain = Vector{<:Real}(undef,n_thinned)
+  for j = 1 : n_thinned
+    for n = 1 : iterations_per_batch
+        z = sampler(z, param)
+    end
+    chain[j] = copy(z)
+    print("Simulation progress: ", floor(j/n_thinned*100), "% \r")
+  end
+  chain
 end

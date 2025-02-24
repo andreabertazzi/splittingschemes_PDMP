@@ -1,28 +1,37 @@
 using Plots
 # using JLD2  # For saving data
-include("helper_split.jl")
-include("moves_samplers.jl")
-include("algorithms.jl")
-include("functions_particles.jl")
+include(joinpath(@__DIR__, "..", "helper_split.jl"))
+include(joinpath(@__DIR__, "..","moves_samplers.jl"))
+include(joinpath(@__DIR__, "..","algorithms.jl"))
+include(joinpath(@__DIR__, "..","functions_particles.jl"))
 
-N = 10 # number of particles
+N = 25 # number of particles
 iter = 1 * 10^3 # number of iterations per thinned sample
 thin_iter = 10^4 # number of thinned samples want to get. If ==1 then no thinning.
 δ = 1e-2
 
 a = 1.
-V(r) = (1/r^12) - (1/r^6)
-W(r) = a * sqrt(1 + r^2)
 
-Vprime(r) = -12 * (1/r^13) + 6 * (1/r^7)
-Wprime(r) = a * r / sqrt(1+r^2)
+V(r) = r^4
+W(r) = - a * sqrt(1 + r^2)
 
+Vprime(r) = 4 * (r^3)
+Wprime(r) = -a * r / sqrt(1+r^2)
+
+# Define rates for ZZP
+# Vrates(x,v,i)   = define_Vrates(Vprime, x, v, i, N)
+# Wrates(x,v,i,j) = define_Wrates(Wprime, x, v, i, j, N)
+# Define gradients for BPS
+# Vgrad(x)        = define_Vgrad(Vprime, x, N)
+# Wgrad(x,j)      = define_Wgrad(Wprime, x, j, N)
+function interaction_pot_grad(x::Vector{Float64})
+    return vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])) + sum(Wprime.(x .- x'), dims=2) / (length(x)))
+end
 function interaction_pot(x::Vector{Float64})
     return sum(V.(x[1:end-1] - x[2:end])) + sum(W.(x .- x')) / (2 * length(x))
 end
-
-Vrates(x,v,i)   = define_Vrates(Vprime, x, v, i, N)
-Wrates(x,v,i,j) = define_Wrates(Wprime, x, v, i, j, N)
+# Vgrad(x) = vec(vcat(Vprime.(x[1:end-1] - x[2:end]), 0.0) - vcat(0.0, Vprime.(x[1:end-1] - x[2:end])))
+# Wgrad(x,j) = vec(Wprime.(x .- x[j]) / (length(x)))
 
 l = 1
 b = 1
@@ -34,22 +43,29 @@ b = 1
 # x_init = (collect(1:N).-N/2)./l
 x_init = randn(N)/l
 sort!(x_init)
-v_init = rand((-1,1),N)
-chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,thin_iter,x_init,v_init);
-# chain_ZZS = thinned_splitting_zzs_particles(Vrates,Wrates,a,δ,N,thin_iter,iter,x_init,v_init);
+# v_init = rand((-1,1),N)
+# runtime_ZZS = @elapsed ( 
+#     chain_ZZS = splitting_zzs_particles(Vrates,Wrates,a,δ,N,iter,thin_iter,x_init,v_init)
+#     )
+v_init = randn(N)
+ub = a
+refresh_rate = 10.
+chain_ZZS = splitting_bps_particles(ub,δ,N,iter,thin_iter,x_init,v_init)
+# chain_ZZS = splitting_bps_particles(Vprime,Wprime,ub,δ,N,iter,thin_iter,x_init,v_init)
 
+# chain_ZZS = splitting_bps_particles_full(interaction_pot_grad,δ,iter,thin_iter,x_init,v_init)
 
 # pos = getPosition(chain_ZZS; want_array=true)
 # mu = mean(pos; dims = 1)
 # plot(mu', label="baricentre")
 
-pos = getPosition(chain_ZZS)
-fun(x) = x.-mean(x)
-plot(reduce(hcat,fun.(pos))',
-    legend=:no, 
-    title = "Trajectories",
-#  xlims = [0,100],
-    )
+pos = [chain_ZZS[i].position for i in eachindex(chain_ZZS)]
+# fun(x) = x.-mean(x)
+# plot(reduce(hcat,fun.(pos))',
+#     legend=:no, 
+#     title = "Trajectories",
+# #  xlims = [0,100],
+#     )
 
 # pl = plot()
 # for j = 1:N
@@ -77,12 +93,25 @@ plot(reduce(hcat,fun.(pos))',
 
 fun_var(x)=mean((x.-mean(x)).^2)
 emp_var=Array{Float64}(undef, length(chain_ZZS))
-emp_var[1]=fun_var(pos[1])
-for iii=2:length(chain_ZZS)
-    emp_var[iii]=emp_var[iii-1]+(fun_var(pos[iii])-emp_var[iii-1])/iii
+emp_var[1] = fun_var(pos[1])
+# emp_var[2:end] = [emp_var[iii+1]+(fun_var(pos[iii+1])-emp_var[iii+1])/(iii+1) for iii in eachindex(chain_ZZS[2:end])]
+# for iii=2:length(chain_ZZS)
+#     emp_var[iii]=emp_var[iii-1]+(fun_var(pos[iii])-emp_var[iii-1])/iii
+# end
+for iii in eachindex(pos[2:end])
+    emp_var[iii+1]=emp_var[iii]+(fun_var(pos[iii+1])-emp_var[iii])/(iii+1)
 end
 # emp_var = compute_variance_particles(chain_ZZS, mean.(pos))
 plot(emp_var, label = "ZZS", ylabel = "Empirical variance", xlabel = "Thinned iterations")
+
+# v(x) = (1/N^2) * sum((x.-transpose(x)).^2)
+# emp_var=Array{Float64}(undef, length(chain_ZZS))
+# emp_var[1]=v(pos[1])
+# for iii=2:length(chain_ZZS)
+#     emp_var[iii]=emp_var[iii-1]+(v(pos[iii])-emp_var[iii-1])/iii
+# end
+# # emp_var = compute_variance_particles(chain_ZZS, mean.(pos))
+# plot(emp_var, label = "ZZS", ylabel = "Empirical variance", xlabel = "Thinned iterations")
 
 
 # positions1 = [chain_ZZS[i].position[1] for i = 1:iter];

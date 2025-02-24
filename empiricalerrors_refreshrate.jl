@@ -10,7 +10,7 @@ include("run_experiments.jl")
 
 ## Chose the relevant parameters
 dim = 1
-δ = 1 * 10^(-1)
+δ = 5 * 10^(-1)
 T = 1 * 10^5
 N = Int64(round(T / δ))
 
@@ -22,7 +22,7 @@ N = Int64(round(T / δ))
 refresh_rates = LinRange(0.05, 3.0, 10)
 
 
-n_exp = 50
+n_exp = 10
 
 samplers = [
     splitting_bps_DBRBD_fun,
@@ -31,38 +31,39 @@ samplers = [
     splitting_bps_BDRDB_fun,
 ]
 ## For Gaussian target
-# ρ = 0.0
-# Σ = ρ * ones(dim, dim) + (1 - ρ)I
-# # Σ[1,1] = 0.05
-# Σ_inv = inv(Σ)
-# Σ_sqrt = sqrt(Σ)
-# μ = zeros(dim)
-# ∇U(x) = Σ_inv * (x - μ)
-# true_rad = Float64(sum(diag(Σ)))
-# truth = true_rad
-# radius(x) = sum(x .^ 2)
-# test_func = radius
+ρ = 0.0
+Σ = ρ * ones(dim, dim) + (1 - ρ)I
+# Σ[1,1] = 0.05
+Σ_inv = inv(Σ)
+Σ_sqrt = sqrt(Σ)
+μ = zeros(dim)
+∇U(x) = Σ_inv * (x - μ)
+true_rad = Float64(sum(diag(Σ)))
+truth = true_rad
+radius(x) = sum(x .^ 2)
+test_func = radius
+use_median = false
 
-# function initial_state_gauss(dim::Int64)
-#     x = Σ_sqrt * randn(dim)
-#     v = randn(dim)
-#     v = v/norm(v)
-#     (x,v)
-# end
+function initial_state_gauss(dim::Int64)
+    x = Σ_sqrt * randn(dim)
+    v = randn(dim)
+    v = v/norm(v)
+    (x,v)
+end
 
-# errors = run_by_refreshmentrates(
-#     ∇U,
-#     samplers,
-#     initial_state_gauss,
-#     # initial_state_bps_gaussianpos,
-#     dim,
-#     δ,
-#     N,
-#     refresh_rates,
-#     n_exp,
-#     test_func,
-#     truth,
-# )
+errors = run_by_refreshmentrates(
+    ∇U,
+    samplers,
+    initial_state_gauss,
+    # initial_state_bps_gaussianpos,
+    dim,
+    δ,
+    N,
+    refresh_rates,
+    n_exp,
+    test_func,
+    truth,
+)
 
 ## For Cauchy distribution in 1D
 # ∇U(x) = 2*x./(1 + norm(x)^2)
@@ -94,39 +95,46 @@ samplers = [
 #     test_func,
 #     truth,
 # )
+# use_median = true
 
 
 ## For the case U(x)=x^4 ##
 
-∇U(x) = 4 * x.^3
-radius(x) = sum(x .^ 2)
-test_func = radius
-using QuadGK
-fn(x) = exp(-x^4)
-partition_fn, err = quadgk(x -> fn(x), -Inf, Inf, rtol=1e-8)
-prob_dens(x) = fn(x)/partition_fn
-tf(x) = test_func(x) * prob_dens(x)
-expest,err = quadgk(x -> tf(x), -Inf, Inf, rtol=1e-8)
-truth = expest
-errors = run_by_refreshmentrates(
-    ∇U,
-    samplers,
-    initial_state_bps_gaussianpos,
-    dim,
-    δ,
-    N,
-    refresh_rates,
-    n_exp,
-    test_func,
-    truth,
-)
+# ∇U(x) = 4 * x.^3
+# radius(x) = sum(x .^ 2)
+# test_func = radius
+# using QuadGK
+# fn(x) = exp(-x^4)
+# partition_fn, err = quadgk(x -> fn(x), -Inf, Inf, rtol=1e-8)
+# prob_dens(x) = fn(x)/partition_fn
+# tf(x) = test_func(x) * prob_dens(x)
+# expest,err = quadgk(x -> tf(x), -Inf, Inf, rtol=1e-8)
+# truth = expest
+# use_median = false
+# errors = run_by_refreshmentrates(
+#     ∇U,
+#     samplers,
+#     initial_state_bps_gaussianpos,
+#     dim,
+#     δ,
+#     N,
+#     refresh_rates,
+#     n_exp,
+#     test_func,
+#     truth,
+# )
 
 
 ## Compute errors and do plots
 
 # create_matrix_errors!(avg_err, errors, length(samplers))  # take averages
 
-avg_err = mean(errors; dims = 2)
+# avg_err = mean(errors; dims = 2)
+if use_median 
+    avg_err = median(errors; dims = 2)
+else
+    avg_err = mean(errors; dims = 2)
+end
 avg_err = dropdims(avg_err, dims = tuple(findall(size(avg_err) .== 1)...))
 avg_err = transpose(avg_err)
 

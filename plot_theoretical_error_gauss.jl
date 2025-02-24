@@ -76,111 +76,115 @@ function p_2x_DRBRD(x::Real)
     p_2_DRBRD(x, v, δ)
 end
 
-h = 0.01
-pts = 3
-N = Integer(pts / h)
-x = [i * h for i = -N:N]
+# h = 0.01
+# pts = 3
+# N = Integer(pts / h)
+# x = [i * h for i = -N:N]
 δ = 0.5
 v = 1
 colours = [:red,:orange,:green,:blue]
-plot(x, p_2x_DBRBD, label = "Splitting DBRBD",linewidth=2,linecolor=colours[1])
-plot!(x, p, label = "Splitting RDBDR",linewidth=2,linecolor=colours[2])
-plot!(x, p_2x_DRBRD, label = "Splitting DRBRD",linewidth=2,linecolor=colours[3])
-plot!(x, p_2x_BDRDB, label = "Splitting BDRDB",linewidth=2,linecolor=colours[4])
-plot!(x, p, label = "Ground truth",linecolor=:black,legendfontsize=10,linestyle=:dash)
+# plot(x, p_2x_DBRBD, label = "Splitting DBRBD",linewidth=2,linecolor=colours[1])
+# plot!(x, p, label = "Splitting RDBDR",linewidth=2,linecolor=colours[2])
+# plot!(x, p_2x_DRBRD, label = "Splitting DRBRD",linewidth=2,linecolor=colours[3])
+# plot!(x, p_2x_BDRDB, label = "Splitting BDRDB",linewidth=2,linecolor=colours[4])
+# plot!(x, p, label = "Ground truth",linecolor=:black,legendfontsize=10,linestyle=:dash)
 
-savefig(string("bps_invmeas_1d_refr_",λ_r,"_delta",δ,"new.pdf"))
+# savefig(string("bps_invmeas_1d_refr_",λ_r,"_delta",δ,"new.pdf"))
 
-p
-# ## Here estimate the TV distance
-# using Roots, QuadGK
-# # using HCubature
+# p
+## Here estimate the TV distance
+using Roots, QuadGK
+# using HCubature
+
+tol = 10^(-4)
+
+diff_DBRBD(x) = p(x) - p_2x_DBRBD(x)
+roots_DBRBD = find_zeros(diff_DBRBD,-8,8)
+A = abs(roots_DBRBD[1])
+integral1, err = quadgk(x -> (p_2x_DBRBD(x)-p(x)), A, Inf, rtol=1e-8)
+integral2, err = quadgk(x -> (p_2x_DBRBD(x)-p(x)), -Inf,-A, rtol=1e-8)
+out_DBRBD = abs(integral1)+abs(integral2)
+in_DBRBD,err = quadgk(x -> (p(x)-p_2x_DBRBD(x)), -A, A, rtol=1e-8)
+#everything is symmetric, so the difference is equal with opposite sign!
+
+diff_BDRDB(x) = p(x) - p_2x_BDRDB(x)
+roots_BDRDB = find_zeros(diff_BDRDB,-8,8)
+A = abs(roots_BDRDB[1])
+integral1, err = quadgk(x -> (p_2x_BDRDB(x)-p(x)), A, Inf, rtol=1e-8)
+integral2, err = quadgk(x -> (p_2x_BDRDB(x)-p(x)), -Inf,-A, rtol=1e-8)
+out_BDRDB = abs(integral1)+abs(integral2)
+in_BDRDB,err = quadgk(x -> (p(x)-p_2x_BDRDB(x)), -A, A, rtol=1e-8)
+
+diff_DRBRD(x) = p(x) - p_2x_DRBRD(x)
+roots_DRBRD = find_zeros(diff_DRBRD,-8,8)
+A = abs(roots_DRBRD[1])
+integral1, err = quadgk(x -> (p_2x_DRBRD(x)-p(x)), A, Inf, rtol=1e-8)
+integral2, err = quadgk(x -> (p_2x_DRBRD(x)-p(x)), -Inf,-A, rtol=1e-8)
+out_DRBRD = abs(integral1)+abs(integral2)
+in_DRBRD,err = quadgk(x -> (p(x)-p_2x_DRBRD(x)), -A, A, rtol=1e-8)
+
+## Check that terms integrate to 0
+
+# f_sum_DBRBD(x,λ_r) =  2 * (λ_r / 24) * (2 * sqrt(2 / pi) - x^3 * sign(x))
+# quadgk(x -> (f_sum_DBRBD(x,1)*p(x)), -Inf, Inf, rtol=1e-8)
 #
-# tol = 10^(-4)
+# f_sum_BDRDB(x) = 1/4 * (1 - x^2)
+# quadgk(x -> (f_sum_BDRDB(x)*p(x)), -Inf, Inf, rtol=1e-8)
 #
-# diff_DBRBD(x) = p(x) - p_2x_DBRBD(x)
-# roots_DBRBD = find_zeros(diff_DBRBD,-8,8)
-# A = abs(roots_DBRBD[1])
-# integral1, err = quadgk(x -> (p_2x_DBRBD(x)-p(x)), A, Inf, rtol=1e-8)
-# integral2, err = quadgk(x -> (p_2x_DBRBD(x)-p(x)), -Inf,-A, rtol=1e-8)
-# out_DBRBD = abs(integral1)+abs(integral2)
-# in_DBRBD,err = quadgk(x -> (p(x)-p_2x_DBRBD(x)), -A, A, rtol=1e-8)
-# #everything is symmetric, so the difference is equal with opposite sign!
+# D_DRBRD(λ_r) = (λ_r / 6) * sqrt(2 / pi) + (λ_r^2) / 16
+# f_sum_DRBRD(x,λ_r) = 2*(D_DRBRD(λ_r) - (λ_r / 12) * (x^3) * sign(x) - λ_r^2 * (x^2) / 16)
+# quadgk(x -> (f_sum_DRBRD(x,3)*p(x)), -Inf, Inf, rtol=1e-8)
+
+
+## Plot TV distance as function of refreshment rate
+function plot_as_fn_refreshrate()
+    stepsize = 0.05
+    λs = [i*stepsize for i=1:60]
+    DBRBD = Vector{Float64}(undef, length(λs))
+    BDRDB = Vector{Float64}(undef, length(λs))
+    DRBRD = Vector{Float64}(undef, length(λs))
+    for (k,rate) in enumerate(λs)
+        λ_r = rate
+        # diff_DBRBD(x) = p(x) - p_2x_DBRBD(x)
+        f_sum_DBRBD(x) = 2 * (λ_r / 24) * (2 * sqrt(2 / pi) - x^3 * sign(x))
+        roots_DBRBD = find_zeros(f_sum_DBRBD,-8,8)
+        # diff_BDRDB(x) = p(x) - p_2x_BDRDB(x)
+        f_sum_BDRDB(x) = 1/4 * (1 - x^2)
+        roots_BDRDB = find_zeros(f_sum_BDRDB,-8,8)
+        # diff_DRBRD(x) = p(x) - p_2x_DRBRD(x)
+        D_DRBRD = (λ_r / 6) * sqrt(2 / pi) + (λ_r^2) / 16
+        f_sum_DRBRD(x) = 2*(D_DRBRD - (λ_r / 12) * (x^3) * sign(x) - λ_r^2 * (x^2) / 16)
+        roots_DRBRD = find_zeros(f_sum_DRBRD,-8,8)
+        A = abs(roots_DBRBD[1])
+        DBRBD[k], err = quadgk(x -> (f_sum_DBRBD(x)*p(x)), -A, A, rtol=1e-8)
+        A = abs(roots_BDRDB[1])
+        BDRDB[k], err = quadgk(x -> (f_sum_BDRDB(x)*p(x)), -A, A, rtol=1e-8)
+        A = abs(roots_DRBRD[1])
+        DRBRD[k], err = quadgk(x -> (f_sum_DRBRD(x)*p(x)), -A, A, rtol=1e-8)
+    end
+    (DBRBD,BDRDB,DRBRD)
+end
+
+(DBRBD,BDRDB,DRBRD) = plot_as_fn_refreshrate()
+λs = [i*0.05 for i=1:60]
+stepsize = 0.5
+DBRBD = 0.5*(stepsize^2)*DBRBD
+prepend!(DBRBD,0.)
+BDRDB = 0.5*(stepsize^2)*BDRDB
+prepend!(BDRDB,BDRDB[1])
+DRBRD = 0.5*(stepsize^2)*DRBRD
+prepend!(DRBRD,0.)
+prepend!(λs,0.)
+RDBDR = zeros(length(λs))
 #
-# diff_BDRDB(x) = p(x) - p_2x_BDRDB(x)
-# roots_BDRDB = find_zeros(diff_BDRDB,-8,8)
-# A = abs(roots_BDRDB[1])
-# integral1, err = quadgk(x -> (p_2x_BDRDB(x)-p(x)), A, Inf, rtol=1e-8)
-# integral2, err = quadgk(x -> (p_2x_BDRDB(x)-p(x)), -Inf,-A, rtol=1e-8)
-# out_BDRDB = abs(integral1)+abs(integral2)
-# in_BDRDB,err = quadgk(x -> (p(x)-p_2x_BDRDB(x)), -A, A, rtol=1e-8)
-#
-# diff_DRBRD(x) = p(x) - p_2x_DRBRD(x)
-# roots_DRBRD = find_zeros(diff_DRBRD,-8,8)
-# A = abs(roots_DRBRD[1])
-# integral1, err = quadgk(x -> (p_2x_DRBRD(x)-p(x)), A, Inf, rtol=1e-8)
-# integral2, err = quadgk(x -> (p_2x_DRBRD(x)-p(x)), -Inf,-A, rtol=1e-8)
-# out_DRBRD = abs(integral1)+abs(integral2)
-# in_DRBRD,err = quadgk(x -> (p(x)-p_2x_DRBRD(x)), -A, A, rtol=1e-8)
-#
-# ## Check that terms integrate to 0
-#
-# # f_sum_DBRBD(x,λ_r) =  2 * (λ_r / 24) * (2 * sqrt(2 / pi) - x^3 * sign(x))
-# # quadgk(x -> (f_sum_DBRBD(x,1)*p(x)), -Inf, Inf, rtol=1e-8)
-# #
-# # f_sum_BDRDB(x) = 1/4 * (1 - x^2)
-# # quadgk(x -> (f_sum_BDRDB(x)*p(x)), -Inf, Inf, rtol=1e-8)
-# #
-# # D_DRBRD(λ_r) = (λ_r / 6) * sqrt(2 / pi) + (λ_r^2) / 16
-# # f_sum_DRBRD(x,λ_r) = 2*(D_DRBRD(λ_r) - (λ_r / 12) * (x^3) * sign(x) - λ_r^2 * (x^2) / 16)
-# # quadgk(x -> (f_sum_DRBRD(x,3)*p(x)), -Inf, Inf, rtol=1e-8)
-#
-#
-# ## Plot TV distance as function of refreshment rate
-# function plot_as_fn_refreshrate()
-#     stepsize = 0.05
-#     λs = [i*stepsize for i=1:60]
-#     DBRBD = Vector{Float64}(undef, length(λs))
-#     BDRDB = Vector{Float64}(undef, length(λs))
-#     DRBRD = Vector{Float64}(undef, length(λs))
-#     for k = 1:length(λs)
-#         λ_r = λs[k]
-#         # diff_DBRBD(x) = p(x) - p_2x_DBRBD(x)
-#         f_sum_DBRBD(x) = 2 * (λ_r / 24) * (2 * sqrt(2 / pi) - x^3 * sign(x))
-#         roots_DBRBD = find_zeros(f_sum_DBRBD,-8,8)
-#         # diff_BDRDB(x) = p(x) - p_2x_BDRDB(x)
-#         f_sum_BDRDB(x) = 1/4 * (1 - x^2)
-#         roots_BDRDB = find_zeros(f_sum_BDRDB,-8,8)
-#         # diff_DRBRD(x) = p(x) - p_2x_DRBRD(x)
-#         D_DRBRD = (λ_r / 6) * sqrt(2 / pi) + (λ_r^2) / 16
-#         f_sum_DRBRD(x) = 2*(D_DRBRD - (λ_r / 12) * (x^3) * sign(x) - λ_r^2 * (x^2) / 16)
-#         roots_DRBRD = find_zeros(f_sum_DRBRD,-8,8)
-#         A = abs(roots_DBRBD[1])
-#         DBRBD[k], err = quadgk(x -> (f_sum_DBRBD(x)*p(x)), -A, A, rtol=1e-8)
-#         A = abs(roots_BDRDB[1])
-#         BDRDB[k], err = quadgk(x -> (f_sum_BDRDB(x)*p(x)), -A, A, rtol=1e-8)
-#         A = abs(roots_DRBRD[1])
-#         DRBRD[k], err = quadgk(x -> (f_sum_DRBRD(x)*p(x)), -A, A, rtol=1e-8)
-#     end
-#     (DBRBD,BDRDB,DRBRD)
-# end
-#
-# (DBRBD,BDRDB,DRBRD) = plot_as_fn_refreshrate()
-# λs = [i*0.05 for i=1:60]
-# stepsize = 0.5
-# DBRBD = 0.5*(stepsize^2)*DBRBD
-# BDRDB = 0.5*(stepsize^2)*BDRDB
-# DRBRD = 0.5*(stepsize^2)*DRBRD
-# RDBDR = zeros(length(λs))
-# #
-# colours = [:red,:orange,:green,:blue]
-# plot(λs,DBRBD,ylabel = "TV distance", xlabel = "Refreshment rate",
-#     linewidth=2,legend=:topleft,legendfontsize=10,
-#     linecolor=colours[1], label = "Splitting DBRBD",
-#     xticks=[0,0.5,1,1.5,2,2.5,3])
-# plot!(λs,RDBDR,linewidth=2,linecolor=colours[2], label = "Splitting RDBDR",)
-# plot!(λs,DRBRD,linewidth=2,linecolor=colours[3], label = "Splitting DRBRD",)
-# plot!(λs,BDRDB,linewidth=2,linecolor=colours[4], label = "Splitting BDRDB",)
+colours = [:red,:orange,:green,:blue]
+plot(λs,DBRBD,ylabel = "TV distance", xlabel = "Refreshment rate",
+    linewidth=2,legend=:topleft,legendfontsize=10,
+    linecolor=colours[1], label = "Splitting DBRBD",
+    xticks=[0,0.5,1,1.5,2,2.5,3])
+plot!(λs,RDBDR,linewidth=2,linecolor=colours[2], label = "Splitting RDBDR",)
+plot!(λs,DRBRD,linewidth=2,linecolor=colours[3], label = "Splitting DRBRD",)
+plot!(λs,BDRDB,linewidth=2,linecolor=colours[4], label = "Splitting BDRDB",)
 # savefig(string("bps_tvdistance_1d_delta_",stepsize,".pdf"))
 
 ## Hoping for some ordering given by the h function
